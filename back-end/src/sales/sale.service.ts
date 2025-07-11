@@ -26,7 +26,6 @@ export class SaleService {
     await queryRunner.startTransaction();
 
     try {
-      // สร้าง sale ใหม่
       const sale = queryRunner.manager.create(Sale, {
         saleNumber: createSaleDto.saleNumber,
         storeId: createSaleDto.storeId,
@@ -43,7 +42,6 @@ export class SaleService {
       let totalTax = 0;
       let totalDiscount = 0;
 
-      // สร้าง sale items
       for (const itemDto of createSaleDto.items) {
         const product = await queryRunner.manager.findOne(Product, {
           where: { id: itemDto.productId },
@@ -53,21 +51,18 @@ export class SaleService {
           throw new NotFoundException(`Product with ID ${itemDto.productId} not found`);
         }
 
-        // ตรวจสอบ stock
         if (product.stockQuantity < itemDto.quantity) {
           throw new BadRequestException(
             `Insufficient stock for product ${product.name}. Available: ${product.stockQuantity}, Requested: ${itemDto.quantity}`
           );
         }
 
-        // คำนวณยอดเงิน
         const lineTotal = itemDto.unitPrice * itemDto.quantity;
         const discountAmount = itemDto.discountAmount || 0;
         const taxableAmount = lineTotal - discountAmount;
         const taxAmount = (taxableAmount * product.taxRate) / 100;
         const totalAmount = taxableAmount + taxAmount;
 
-        // สร้าง sale item
         const saleItem = queryRunner.manager.create(SaleItem, {
           saleId: savedSale.id,
           productId: itemDto.productId,
@@ -80,7 +75,6 @@ export class SaleService {
 
         await queryRunner.manager.save(saleItem);
 
-        // อัปเดต stock
         product.stockQuantity -= itemDto.quantity;
         await queryRunner.manager.save(product);
 
@@ -89,7 +83,6 @@ export class SaleService {
         totalDiscount += discountAmount;
       }
 
-      // อัปเดต sale totals
       savedSale.subtotal = subtotal;
       savedSale.taxAmount = totalTax;
       savedSale.discountAmount = totalDiscount;
@@ -162,10 +155,9 @@ export class SaleService {
         throw new BadRequestException('Can only cancel completed sales');
       }
 
-      // คืน stock
       for (const item of sale.saleItems) {
         const product = await queryRunner.manager.findOne(Product, {
-          where: { id: item.productId },
+          where: { id: item.product_id },
         });
         
         if (product) {
@@ -174,7 +166,6 @@ export class SaleService {
         }
       }
 
-      // อัปเดต sale status
       sale.saleStatus = 'cancelled';
       const updatedSale = await queryRunner.manager.save(sale);
 

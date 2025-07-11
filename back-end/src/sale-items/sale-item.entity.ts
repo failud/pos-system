@@ -1,43 +1,44 @@
-import { Product } from 'src/products/product.entity';
-import { Sale } from 'src/sales/sale.entity';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-
+import { Sale } from '../sales/sale.entity';
+import { Product } from '../products/product.entity';
 
 @Entity('sale_items')
 export class SaleItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
+  sale_id: string;
+
+  @Column({ type: 'uuid' })
+  product_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  product_variant_id: string;
+
+  @Column({ type: 'int' })
   quantity: number;
 
-  @Column({ name: 'unit_price', type: 'decimal', precision: 10, scale: 2 })
-  unitPrice: number;
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  unit_price: number;
 
-  @Column({ name: 'discount_amount', type: 'decimal', precision: 10, scale: 2, default: 0 })
-  discountAmount: number;
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  discount_amount: number;
 
-  @Column({ name: 'tax_amount', type: 'decimal', precision: 10, scale: 2, default: 0 })
-  taxAmount: number;
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  tax_amount: number;
 
-  @Column({ name: 'total_amount', type: 'decimal', precision: 10, scale: 2 })
-  totalAmount: number;
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  total_amount: number;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @CreateDateColumn()
+  created_at: Date;
 
-  // Relations
   @ManyToOne(() => Sale, sale => sale.saleItems)
   @JoinColumn({ name: 'sale_id' })
   sale: Sale;
 
-  @Column({ name: 'sale_id' })
-  saleId: string;
-
   @ManyToOne(() => Product, product => product.saleItems)
   @JoinColumn({ name: 'product_id' })
   product: Product;
-
-  @Column({ name: 'product_id' })
-  productId: string;
 }

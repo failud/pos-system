@@ -20,6 +20,8 @@ import { SaleModule } from './sales/dale.module';
 import { BrandModule } from './brands/brand.module';
 import { CustomerModule } from './customers/customer.module';
 import { StoreModule } from './stores/store.module';
+import { UserModule } from './users/user.module';
+import { SaleItemModule } from './sale-items/sale-item.module';
 
 @Module({
   imports: [
@@ -51,7 +53,9 @@ import { StoreModule } from './stores/store.module';
     SaleModule,
     BrandModule,
     CustomerModule,
-    StoreModule
+    StoreModule,
+    UserModule,
+    SaleItemModule
 
   ],
   controllers: [AppController],

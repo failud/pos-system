@@ -1,43 +1,41 @@
-// src/entities/user.entity.ts
-import { Sale } from 'src/sales/sale.entity';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Sale } from '../sales/sale.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true, length: 50 })
+  @Column({ length: 50, unique: true })
   username: string;
 
-  @Column({ unique: true, length: 100 })
+  @Column({ length: 100, unique: true })
   email: string;
 
-  @Column({ name: 'password_hash', length: 255 })
-  passwordHash: string;
+  @Column({ length: 255 })
+  password_hash: string;
 
-  @Column({ name: 'first_name', length: 50 })
-  firstName: string;
+  @Column({ length: 50 })
+  first_name: string;
 
-  @Column({ name: 'last_name', length: 50 })
-  lastName: string;
+  @Column({ length: 50 })
+  last_name: string;
 
   @Column({ length: 20, nullable: true })
   phone: string;
 
   @Column({ length: 20, default: 'cashier' })
-  role: 'admin' | 'manager' | 'cashier';
+  role: string; // admin, manager, cashier
 
-  @Column({ name: 'is_active', default: true })
-  isActive: boolean;
+  @Column({ default: true })
+  is_active: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @CreateDateColumn()
+  created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  @UpdateDateColumn()
+  updated_at: Date;
 
-  // Relations
   @OneToMany(() => Sale, sale => sale.cashier)
   sales: Sale[];
 }
