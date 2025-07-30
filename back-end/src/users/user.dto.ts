@@ -63,6 +63,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  password_hash?: string;
 }
 
 export class LoginUserDto {

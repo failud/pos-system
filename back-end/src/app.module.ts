@@ -22,6 +22,9 @@ import { CustomerModule } from './customers/customer.module';
 import { StoreModule } from './stores/store.module';
 import { UserModule } from './users/user.module';
 import { SaleItemModule } from './sale-items/sale-item.module';
+import { UserSession } from './users/user-session.entity';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { APP_GUARD, Reflector } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -43,10 +46,11 @@ import { SaleItemModule } from './sale-items/sale-item.module';
         Customer,
         Store,
         Sale,
-        SaleItem
+        SaleItem,
+        UserSession
       ],
-      synchronize: false, 
-      logging: true, 
+      synchronize: false,
+      logging: false,
     }),
     ProductModule,
     CategoryModule,
@@ -59,6 +63,13 @@ import { SaleItemModule } from './sale-items/sale-item.module';
 
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    Reflector
+  ],
 })
 export class AppModule { }

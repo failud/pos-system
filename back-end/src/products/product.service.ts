@@ -1,10 +1,11 @@
 // src/services/product.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { CreateProductDto, UpdateProductDto } from './product.dto';
+import { PaginationQueryDto } from '../common/dto/pagination.dto';
+import { PaginatedResult } from '../interfaces/pagination.interface';
 import { Product } from './product.entity';
-
 
 @Injectable()
 export class ProductService {
@@ -23,6 +24,76 @@ export class ProductService {
       relations: ['category', 'brand'],
       where: { isActive: true },
     });
+  }
+
+  async findAllPaginated(query: PaginationQueryDto): Promise<PaginatedResult<Product>> {
+    const { page = 1, limit = 10, search } = query;
+    const skip = (page - 1) * limit;
+
+    let queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .where('product.isActive = :isActive', { isActive: true });
+
+    if (search) {
+      queryBuilder = queryBuilder.andWhere(
+        '(product.name ILIKE :searchTerm OR product.sku ILIKE :searchTerm OR product.barcode ILIKE :searchTerm)',
+        { searchTerm: `%${search}%` }
+      );
+    }
+
+    const total = await queryBuilder.getCount();
+    
+    const data = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy('product.createdAt', 'DESC')
+      .getMany();
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async getLowStockProductsPaginated(query: PaginationQueryDto): Promise<PaginatedResult<Product>> {
+    const { page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .where('product.stockQuantity <= product.minStockLevel')
+      .andWhere('product.isActive = :isActive', { isActive: true });
+
+    const total = await queryBuilder.getCount();
+    
+    const data = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy('product.stockQuantity', 'ASC')
+      .getMany();
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async findOne(id: string): Promise<Product> {
@@ -101,5 +172,13 @@ export class ProductService {
       .orWhere('product.barcode ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
       .andWhere('product.isActive = :isActive', { isActive: true })
       .getMany();
+  }
+
+  private createProductQueryBuilder(): SelectQueryBuilder<Product> {
+    return this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .where('product.isActive = :isActive', { isActive: true });
   }
 }

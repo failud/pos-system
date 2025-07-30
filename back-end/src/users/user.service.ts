@@ -1,118 +1,193 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './user.entity';
-import { CreateUserDto, UpdateUserDto, LoginUserDto } from './user.dto';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { User } from './user.entity';
+import { UserSession } from './user-session.entity';
+import { CreateUserDto, LoginUserDto } from './user.dto';
+
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {}
+
+    @InjectRepository(UserSession)
+    private userSessionRepository: Repository<UserSession>,
+
+    private jwtService: JwtService,
+  ) { }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    // Check if username or email already exists
-    const existingUser = await this.userRepository.findOne({
-      where: [
-        { username: createUserDto.username },
-        { email: createUserDto.email }
-      ]
-    });
-
-    if (existingUser) {
-      throw new ConflictException('Username or email already exists');
-    }
-
-    // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(createUserDto.password, saltRounds);
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
     const user = this.userRepository.create({
       ...createUserDto,
       password_hash: hashedPassword,
     });
 
-    const savedUser = await this.userRepository.save(user);
-    
-    // Remove password from response
-    const { password_hash, ...userWithoutPassword } = savedUser;
-    return userWithoutPassword as User;
+    return this.userRepository.save(user);
   }
 
   async findAll(): Promise<User[]> {
-    const users = await this.userRepository.find({
-      where: { is_active: true },
-      order: { created_at: 'DESC' },
-    });
-    
-    // Remove password from response
-    return users.map(user => {
-      const { password_hash, ...userWithoutPassword } = user;
-      return userWithoutPassword as User;
+    return this.userRepository.find({
+      select: ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_active', 'created_at', 'updated_at'],
     });
   }
 
-  async findOne(id: string): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id, is_active: true },
+  async findOne(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_active', 'created_at', 'updated_at'],
     });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-    
-    // Remove password from response
-    const { password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword as User;
-  }
-
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-
-    // Hash password if provided
-    if (updateUserDto.password) {
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(updateUserDto.password, saltRounds);
-      updateUserDto['password_hash'] = hashedPassword;
-      delete updateUserDto.password;
-    }
-
-    Object.assign(user, updateUserDto);
-    const savedUser = await this.userRepository.save(user);
-    
-    // Remove password from response
-    const { password_hash, ...userWithoutPassword } = savedUser;
-    return userWithoutPassword as User;
-  }
-
-  async remove(id: string): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-    user.is_active = false;
-    await this.userRepository.save(user);
   }
 
   async findByUsername(username: string): Promise<User | null> {
-    return await this.userRepository.findOne({
-      where: { username, is_active: true },
+    return this.userRepository.findOne({
+      where: { username },
     });
   }
 
-  async validateUser(loginUserDto: LoginUserDto): Promise<User | null> {
-    const user = await this.userRepository.findOne({
-      where: { username: loginUserDto.username, is_active: true },
+  async validateUserAndCreateSession(loginUserDto: LoginUserDto): Promise<{
+    success: boolean;
+    user?: User;
+    token?: string;
+  }> {
+    try {
+
+      const user = await this.userRepository.findOne({
+        where: { username: loginUserDto.username },
+      });
+
+      if (!user) {
+        return { success: false };
+      }
+
+      const isPasswordValid = await bcrypt.compare(loginUserDto.password, user.password_hash);
+      if (!isPasswordValid) {
+        return { success: false };
+      }
+
+      if (!user.is_active) {
+        return { success: false };
+      }
+
+      await this.cleanupExpiredSessions(user.id);
+
+
+      await this.userSessionRepository.delete({ userId: user.id });
+
+
+      const payload = {
+        sub: user.id,
+        username: user.username,
+        role: user.role
+      };
+      const token = this.jwtService.sign(payload);
+
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); 
+
+      const userSession = this.userSessionRepository.create({
+        userId: user.id,
+        token,
+        expiresAt,
+      });
+
+      await this.userSessionRepository.save(userSession);
+
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          role: user.role,
+          is_active: user.is_active,
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        } as User,
+        token,
+      };
+    } catch (error) {
+      console.error('Error in validateUserAndCreateSession:', error);
+      throw error;
+    }
+  }
+
+  async validateSession(token: string): Promise<User | null> {
+    const session = await this.userSessionRepository.findOne({
+      where: { token },
+      relations: ['user'],
     });
 
-    if (user && await bcrypt.compare(loginUserDto.password, user.password_hash)) {
-      const { password_hash, ...userWithoutPassword } = user;
-      return userWithoutPassword as User;
+    if (!session || new Date() > session.expiresAt) {
+      return null;
     }
-    return null;
+
+    const user = await this.userRepository.findOne({
+      where: { id: session.userId, is_active: true }
+    });
+
+    return user || null;
+  }
+
+  async logout(token: string): Promise<boolean> {
+    try {
+      const result = await this.userSessionRepository.delete({ token });
+      return (result.affected ?? 0) > 0;
+    } catch (error) {
+      console.error('Error in logout:', error);
+      return false;
+    }
+  }
+
+  async logoutAllSessions(userId: string): Promise<boolean> {
+    try {
+      const result = await this.userSessionRepository.delete({ userId });
+      return (result.affected ?? 0) > 0;
+    } catch (error) {
+      console.error('Error in logoutAllSessions:', error);
+      return false;
+    }
+  }
+
+  private async cleanupExpiredSessions(userId?: string): Promise<void> {
+    try {
+      const query = this.userSessionRepository
+        .createQueryBuilder()
+        .delete()
+        .where('expires_at < :now', { now: new Date() });
+
+      if (userId) {
+        query.andWhere('user_id = :userId', { userId });
+      }
+
+      await query.execute();
+    } catch (error) {
+      console.error('Error in cleanupExpiredSessions:', error);
+    }
+  }
+
+  // Call this method periodically to clean up expired sessions
+  async cleanupAllExpiredSessions(): Promise<void> {
+    await this.cleanupExpiredSessions();
+  }
+
+  async update(id: string, updateUserDto: Partial<CreateUserDto>): Promise<User | null> {
+    if (updateUserDto.password) {
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
+
+    await this.userRepository.update(id, updateUserDto);
+    return this.findOne(id);
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.userRepository.delete(id);
   }
 }

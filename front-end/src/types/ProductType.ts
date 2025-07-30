@@ -47,3 +47,21 @@ export interface ProductVariant extends ActiveEntity {
   sku?: string;
   product?: Product;
 }
+
+export interface ProductFormValues {
+    name: string;
+    description?: string;
+    sku: string;
+    barcode: string;
+    costPrice: number;
+    sellingPrice: number;
+    discountPrice?: number;
+    stockQuantity: number;
+    minStockLevel: number;
+    maxStockLevel: number;
+    unit: string;
+    taxRate: number;
+    isActive: boolean;
+    categoryId: string;
+    brandId: string;
+}

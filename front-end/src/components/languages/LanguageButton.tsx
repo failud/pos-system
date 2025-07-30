@@ -7,22 +7,22 @@ interface LanguageOption {
   key: LanguageType;
   icon: string;
   alt: string;
-  label: string
+  // label: string
 }
 
 // Language options configuration
 const languageOptions: LanguageOption[] = [
   {
     key: LANGUAGES.LA,
-    icon: '/assets/icons/icon-laos.png',
+    icon: '/icons/flags/laos.png',
     alt: 'Lao Language',
-    label: "LA"
+    // label: "LA"
   },
   {
     key: LANGUAGES.EN,
-    icon: '/assets/icons/united-kingdom.png',
+    icon: '/icons/flags/united-kingdom.png',
     alt: 'English Language',
-    label: "EN"
+    // label: "EN"
   },
 ];
 
@@ -33,7 +33,7 @@ const LanguageButton: React.FC = () => {
 
   const handleLanguageSelect: MenuProps['onClick'] = ({ key }) => {
     setLanguage(key as LanguageType);
-    window.location.reload();
+    // window.location.reload();
   };
 
   const items: MenuProps['items'] = languageOptions
@@ -68,7 +68,7 @@ const LanguageButton: React.FC = () => {
           src={selectedLanguage.icon} 
           alt={selectedLanguage.alt}
         />
-        <span className="text-sm">{selectedLanguage.label}</span>
+        {/* <span className="text-sm">{selectedLanguage.label}</span> */}
       </button>
     </Dropdown>
   );

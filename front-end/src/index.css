@@ -93,3 +93,28 @@
     container-type: inline-size;
   }
 }
+
+body {
+  font-family: 'Noto Sans Lao', sans-serif;
+}
+
+.ant-modal,
+.ant-input,
+.ant-btn,
+.ant-select,
+.ant-menu,
+.ant-tabs,
+.ant-table,
+.ant-notification,
+.ant-dropdown,
+.ant-tooltip,
+.ant-popover,
+.ant-message {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+
+h1, h2, h3, h4, h5, h6,
+p, span, a, li, div {
+  font-family: 'Noto Sans Lao', sans-serif;
+}

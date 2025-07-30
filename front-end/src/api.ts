@@ -1,5 +1,8 @@
 import axios from 'axios';
 import { Modal } from 'antd';
+import { getTokenFromCookies, removeAuthCookies } from './utils/auth';
+// import { getTokenFromCookies, removeAuthCookies } from './utils/auth';
+
 
 // Environment variable for API URL
 const apiURL = import.meta.env.VITE_API_URL;
@@ -26,24 +29,30 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // Added timeout for better error handling
+  timeout: 10000,
+  withCredentials: true, 
 });
 
 /**
  * Request interceptor for adding authorization token
  */
-apiClient.interceptors.request.use((config) => {
-  const cookies = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith('userInfo='));
-  const token = cookies ? decodeURIComponent(cookies.split('=')[1]) : null;
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = getTokenFromCookies();
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
+/**
+ * Response interceptor for handling errors and token expiration
+ */
 apiClient.interceptors.response.use(
   (response) => {
     return response;
@@ -60,7 +69,17 @@ apiClient.interceptors.response.use(
           showErrorModal('Your payment is waiting for approval. Please try again later');
           break;
         case status === 401:
+          // Token expired or invalid
+          removeAuthCookies();
           showErrorModal('Session expired. Please login again.', 'Unauthorized');
+          
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            window.location.href = '/welcome';
+          }, 1500);
+          break;
+        case status === 403:
+          showErrorModal('Access denied. You don\'t have permission to access this resource.', 'Forbidden');
           break;
         case status === 404:
           const message = data.message || 'The requested resource was not found. Please try again later';
