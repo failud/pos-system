@@ -7,14 +7,10 @@ import {
     Card,
     Tag,
     Modal,
-    Form,
-    InputNumber,
     Select,
-    Switch,
     Row,
     Col,
     Statistic,
-    Divider,
     message,
     Badge,
     Avatar,
@@ -32,23 +28,24 @@ import {
     WarningOutlined,
     MoreOutlined,
     ScanOutlined,
-    ExportOutlined,
-    ImportOutlined,
+
     ReloadOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import type { MenuProps } from 'antd';
+import type { BadgeProps, MenuProps } from 'antd';
 import Layout from '../components/Layout/Layout';
 import { useLanguage } from '../components/languages/LanguageContext';
-import type { Category, Product, ProductFormValues } from '../types/ProductType';
+import type { Category, Product, ProductResponse } from '../types/ProductType';
 import { getAllCategory } from '../services/CategorySV';
 import { getAllProducts } from '../services/ProductSV';
+import { Content } from 'antd/es/layout/layout';
+import { AddEditProduct } from '../components/modals/products/AddEditProduct';
 
 const { Search } = Input;
 const { Option } = Select;
 
 interface StockStatus {
-    status: 'error' | 'warning' | 'success';
+    status: | 'success' | 'exception' | 'active';
     text: string;
 }
 
@@ -58,83 +55,67 @@ const ProductPage: React.FC = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [searchText, setSearchText] = useState<string>('');
-    const [selectedCategory, setSelectedCategory] = useState<string>('');
-    const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const [form] = Form.useForm<ProductFormValues>();
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [categoryList, setCategoryList] = useState<Category[]>([])
+    const [page, setPage] = useState<number>(1)
+    const [limit, setLimit] = useState<number>(10)
+    const [productResponse, setProductResponse] = useState<ProductResponse | null>(null);
+    const [isEditing, setEditing] = useState<boolean>(false);
+    const [modalProduct, setModalProduct] = useState<boolean>(false);
 
-
-    const sampleProducts: Product[] = [
-        {
-            id: "c4ee7b52-962f-4d73-8a95-33f6a02d2d83",
-            name: "โออิชิ กรีนที ขวด 500 มล.",
-            description: "ชาเขียวโออิชิ ขนาด 500 มิลลิลิตร",
-            sku: "OISHI-GT-500ML",
-            barcode: "8850001112223",
-            costPrice: "15.00",
-            sellingPrice: "25.00",
-            discountPrice: "20.00",
-            stockQuantity: 20,
-            minStockLevel: 5,
-            maxStockLevel: 200,
-            unit: "ขวด",
-            taxRate: "7.00",
-            isActive: true,
-            imageUrl: "https://example.com/images/oishi-greentea-500ml.jpg",
-            createdAt: "2025-07-10T08:05:24.738Z",
-            updatedAt: "2025-07-10T08:40:33.694Z",
-            category: {
-                id: "b291e282-6783-48fa-a661-a99971fe0c56",
-                name: "เครื่องดื่มเย็น",
-                description: "หมวดหมู่เครื่องดื่มเย็น",
-                isActive: true
-            },
-            brand: {
-                id: "c46068ab-06a4-415f-895a-cf283dcb39b4",
-                name: "No name",
-                description: "br mi y drk ...",
-                is_active: true
-            }
-        }
-    ];
 
     const fetch_category = async () => {
         try {
             const response = await getAllCategory();
             console.log("categoy response -------- ", response)
             if (response) {
-                setCategoryList(response.data);
+                setCategoryList(response.data.data);
             }
         } catch (error: any) {
             console.log("Error get categories -------- ", error)
         }
     }
 
-    const fetch_product = async () => {
+    const fetch_product = async (page?: number, limit?: number) => {
+        setLoading(true);
         try {
-            const response = await getAllProducts();
-            console.log("Product response", response)
+            const response = await getAllProducts(page, limit);
+            setProductResponse(response.data);
+            setTotalItems(response.data.pagination.total);
+            console.log("Product response", response.data)
         } catch (error: any) {
             console.log("Error get Product list", error)
+        } finally {
+            setLoading(false)
         }
     }
 
+    const productList = productResponse?.data || [];
     useEffect(() => {
-        setProducts(sampleProducts);
         fetch_category();
-        fetch_product();
     }, []);
 
+    useEffect(() => {
+        fetch_product();
+    }, [limit, page])
+
     const getStockStatus = (current: number, min: number, max: number): StockStatus => {
-        if (current <= min) return { status: 'error', text: 'สต็อกต่ำ' };
-        if (current >= max) return { status: 'warning', text: 'สต็อกเต็ม' };
-        return { status: 'success', text: 'ปกติ' };
+        if (current <= min) return { status: 'exception', text: `${t("low stock")}` };
+        if (current >= max) return { status: 'active', text: `${t("full stock")}` };
+        return { status: 'success', text: `${t("normal")}` };
     };
 
     const getStockProgress = (current: number, min: number, max: number): number => {
         const percentage = ((current - min) / (max - min)) * 100;
         return Math.min(Math.max(percentage, 0), 100);
+    };
+
+    const mapStatus = (status: string): BadgeProps['status'] => {
+        switch (status) {
+            case 'exception': return 'error';
+            case 'active': return 'success';
+            default: return status as BadgeProps['status'];
+        }
     };
 
     const columns: ColumnsType<Product> = [
@@ -144,13 +125,15 @@ const ProductPage: React.FC = () => {
             key: 'imageUrl',
             width: 80,
             render: (url: string, record: Product) => (
-                <Avatar
-                    size={50}
-                    src={url}
-                    style={{ backgroundColor: '#f0f0f0' }}
-                >
-                    {record.name.charAt(0)}
-                </Avatar>
+                <Content className='flex justify-center'>
+                    <Avatar
+                        size={50}
+                        src={url}
+                        style={{ backgroundColor: '#f0f0f0' }}
+                    >
+                        {record.name.charAt(0)}
+                    </Avatar>
+                </Content>
             ),
         },
         {
@@ -181,7 +164,7 @@ const ProductPage: React.FC = () => {
             width: 120,
             render: (text: string) => (
                 <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
-                    {text}
+                    {text || '-'}
                 </div>
             ),
         },
@@ -224,7 +207,7 @@ const ProductPage: React.FC = () => {
                             <span style={{ fontWeight: 500 }}>{record.stockQuantity}</span>
                             <span style={{ fontSize: 12, color: '#666' }}>{record.unit}</span>
                             <Badge
-                                status={stockStatus.status}
+                                status={mapStatus(stockStatus.status)}
                                 text={stockStatus.text}
                                 style={{ fontSize: 10 }}
                             />
@@ -247,7 +230,7 @@ const ProductPage: React.FC = () => {
             width: 100,
             render: (isActive: boolean) => (
                 <Tag color={isActive ? 'green' : 'red'}>
-                    {isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                    {isActive ? `${t("active")}` : `${t("disable")}`}
                 </Tag>
             ),
         },
@@ -327,75 +310,8 @@ const ProductPage: React.FC = () => {
         });
     };
 
-    const handleSubmit = async (values: ProductFormValues): Promise<void> => {
-        setLoading(true);
-        try {
-            if (editingProduct) {
-                // Update existing product
-                const updatedProducts = products.map(p =>
-                    p.id === editingProduct.id ? {
-                        ...p,
-                        ...values,
-                        costPrice: values.costPrice.toString(),
-                        sellingPrice: values.sellingPrice.toString(),
-                        discountPrice: values.discountPrice?.toString() || '',
-                        taxRate: values.taxRate.toString(),
-                        updatedAt: new Date().toISOString(),
-                    } : p
-                );
-                setProducts(updatedProducts);
-                message.success('อัปเดตสินค้าสำเร็จ');
-            } else {
-                // Create new product
-                const newProduct: Product = {
-                    ...values,
-                    id: Date.now().toString(),
-                    costPrice: values.costPrice.toString(),
-                    sellingPrice: values.sellingPrice.toString(),
-                    discountPrice: values.discountPrice?.toString() || '',
-                    taxRate: values.taxRate.toString(),
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    category: {
-                        id: values.categoryId,
-                        name: 'เครื่องดื่มเย็น',
-                        description: 'หมวดหมู่เครื่องดื่มเย็น',
-                        isActive: true
-                    },
-                    brand: {
-                        id: values.brandId,
-                        name: 'No name',
-                        description: 'br mi y drk ...',
-                        is_active: true
-                    },
-                    imageUrl: 'https://example.com/images/default-product.jpg',
-                };
-                setProducts([...products, newProduct]);
-                message.success('เพิ่มสินค้าสำเร็จ');
-            }
-            setIsModalVisible(false);
-            setEditingProduct(null);
-            form.resetFields();
-        } catch (error) {
-            message.error('เกิดข้อผิดพลาด');
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    const filteredProducts = products.filter(product => {
-        const matchesSearch = product.name.toLowerCase().includes(searchText.toLowerCase()) ||
-            product.sku.toLowerCase().includes(searchText.toLowerCase()) ||
-            product.barcode.includes(searchText);
-        const matchesCategory = !selectedCategory || product.category.id === selectedCategory;
-        return matchesSearch && matchesCategory;
-    });
 
-    // Calculate statistics
-    const totalProducts = products.length;
-    const activeProducts = products.filter(p => p.isActive).length;
-    const lowStockProducts = products.filter(p => p.stockQuantity <= p.minStockLevel).length;
-    const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.sellingPrice) * p.stockQuantity), 0);
 
     return (
         <>
@@ -414,7 +330,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("all products")}
-                                    value={totalProducts}
+                                    // value={totalProducts}
                                     prefix={<ShoppingCartOutlined />}
                                     valueStyle={{ color: '#1890ff' }}
                                 />
@@ -424,7 +340,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("activated products")}
-                                    value={activeProducts}
+                                    // value={activeProducts}
                                     prefix={<ShoppingCartOutlined />}
                                     valueStyle={{ color: '#52c41a' }}
                                 />
@@ -434,7 +350,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("low stock")}
-                                    value={lowStockProducts}
+                                    // value={lowStockProducts}
                                     prefix={<WarningOutlined />}
                                     valueStyle={{ color: '#ff4d4f' }}
                                 />
@@ -444,7 +360,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("value in stock")}
-                                    value={totalValue}
+                                    // value={totalValue}
                                     prefix="฿"
                                     precision={2}
                                     valueStyle={{ color: '#52c41a' }}
@@ -479,7 +395,7 @@ const ProductPage: React.FC = () => {
                                     style={{ width: 150 }}
                                     allowClear
                                 >
-                                    {categoryList?.filter(category => !category.parent_id).map((category) => (
+                                    {categoryList?.filter(category => !category.parentId).map((category) => (
                                         <Option key={category.id} value={category.id}>
                                             {category.name}
                                         </Option>
@@ -488,22 +404,15 @@ const ProductPage: React.FC = () => {
                             </Space>
 
                             <Space wrap>
-                                {/* <Button icon={<ImportOutlined />}>
-                                    t({"import"})
-                                </Button>
-                                <Button icon={<ExportOutlined />}>
-                                    {t("export")}
-                                </Button> */}
-                                <Button icon={<ReloadOutlined />} onClick={() => setProducts(sampleProducts)}>
+                                <Button icon={<ReloadOutlined />} onClick={() => fetch_product(page)}>
                                     {t("refresh")}
                                 </Button>
                                 <Button
                                     type="primary"
                                     icon={<PlusOutlined />}
                                     onClick={() => {
-                                        setEditingProduct(null);
-                                        form.resetFields();
-                                        setIsModalVisible(true);
+                                        setEditing(false);
+                                        setModalProduct(true);
                                     }}
                                 >
                                     {t("add new product")}
@@ -514,242 +423,29 @@ const ProductPage: React.FC = () => {
                         {/* Products Table */}
                         <Table
                             columns={columns}
-                            dataSource={filteredProducts}
+                            dataSource={productList}
                             rowKey="id"
                             loading={loading}
                             pagination={{
-                                total: filteredProducts.length,
-                                pageSize: 10,
+                                total: productResponse?.pagination.total || 0,
+                                current: productResponse?.pagination.page || 1,
+                                pageSize: productResponse?.pagination.limit || 10,
                                 showSizeChanger: true,
                                 showQuickJumper: true,
-                                showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`,
+                                showTotal: (total, range) => `${t("total")} ${total} ${t("items")}`,
+                                // onChange: (page, limit) => {
+                                //     // Handle pagination change
+                                //     fetch_product(page, limit);
+                                // },
                             }}
                             scroll={{ x: 1000 }}
                             size="small"
                         />
                     </Card>
 
+                    <AddEditProduct editingProduct={isEditing} open={modalProduct} close={() => setModalProduct(false)} />
                 </div>
             </Layout>
-
-            {/* Product Modal */}
-            <Modal
-                centered
-                title={editingProduct ? `${t("edit product")}` : `${t("add new product")}`}
-                open={isModalVisible}
-                onCancel={() => {
-                    setIsModalVisible(false);
-                    setEditingProduct(null);
-                    form.resetFields();
-                }}
-                footer={null}
-                width={800}
-            >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSubmit}
-                >
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="ชื่อสินค้า"
-                                name="name"
-                                rules={[{ required: true, message: 'กรุณากรอกชื่อสินค้า' }]}
-                            >
-                                <Input placeholder="ชื่อสินค้า" />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="SKU"
-                                name="sku"
-                                rules={[{ required: true, message: 'กรุณากรอก SKU' }]}
-                            >
-                                <Input placeholder="SKU" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Form.Item
-                        label="รายละเอียด"
-                        name="description"
-                    >
-                        <Input.TextArea rows={2} placeholder="รายละเอียดสินค้า" />
-                    </Form.Item>
-
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="บาร์โค้ด"
-                                name="barcode"
-                                rules={[{ required: true, message: 'กรุณากรอกบาร์โค้ด' }]}
-                            >
-                                <Input placeholder="บาร์โค้ด" />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="หน่วย"
-                                name="unit"
-                                rules={[{ required: true, message: 'กรุณากรอกหน่วย' }]}
-                            >
-                                <Input placeholder="หน่วย" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col xs={24} md={8}>
-                            <Form.Item
-                                label="ราคาต้นทุน"
-                                name="costPrice"
-                                rules={[{ required: true, message: 'กรุณากรอกราคาต้นทุน' }]}
-                            >
-                                <InputNumber
-                                    placeholder="0.00"
-                                    style={{ width: '100%' }}
-                                    precision={2}
-                                    min={0}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={8}>
-                            <Form.Item
-                                label="ราคาขาย"
-                                name="sellingPrice"
-                                rules={[{ required: true, message: 'กรุณากรอกราคาขาย' }]}
-                            >
-                                <InputNumber
-                                    placeholder="0.00"
-                                    style={{ width: '100%' }}
-                                    precision={2}
-                                    min={0}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={8}>
-                            <Form.Item
-                                label="ราคาส่วนลด"
-                                name="discountPrice"
-                            >
-                                <InputNumber
-                                    placeholder="0.00"
-                                    style={{ width: '100%' }}
-                                    precision={2}
-                                    min={0}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col xs={24} md={8}>
-                            <Form.Item
-                                label="จำนวนสต็อก"
-                                name="stockQuantity"
-                                rules={[{ required: true, message: 'กรุณากรอกจำนวนสต็อก' }]}
-                            >
-                                <InputNumber
-                                    placeholder="0"
-                                    style={{ width: '100%' }}
-                                    min={0}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={8}>
-                            <Form.Item
-                                label="สต็อกต่ำสุด"
-                                name="minStockLevel"
-                                rules={[{ required: true, message: 'กรุณากรอกสต็อกต่ำสุด' }]}
-                            >
-                                <InputNumber
-                                    placeholder="0"
-                                    style={{ width: '100%' }}
-                                    min={0}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={8}>
-                            <Form.Item
-                                label="สต็อกสูงสุด"
-                                name="maxStockLevel"
-                                rules={[{ required: true, message: 'กรุณากรอกสต็อกสูงสุด' }]}
-                            >
-                                <InputNumber
-                                    placeholder="0"
-                                    style={{ width: '100%' }}
-                                    min={0}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="หมวดหมู่"
-                                name="categoryId"
-                                rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}
-                            >
-                                <Select placeholder="เลือกหมวดหมู่">
-                                    <Option value="b291e282-6783-48fa-a661-a99971fe0c56">เครื่องดื่มเย็น</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="แบรนด์"
-                                name="brandId"
-                                rules={[{ required: true, message: 'กรุณาเลือกแบรนด์' }]}
-                            >
-                                <Select placeholder="เลือกแบรนด์">
-                                    <Option value="c46068ab-06a4-415f-895a-cf283dcb39b4">No name</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="อัตราภาษี (%)"
-                                name="taxRate"
-                                rules={[{ required: true, message: 'กรุณากรอกอัตราภาษี' }]}
-                            >
-                                <InputNumber
-                                    placeholder="7.00"
-                                    style={{ width: '100%' }}
-                                    precision={2}
-                                    min={0}
-                                    max={100}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="สถานะการใช้งาน"
-                                name="isActive"
-                                valuePropName="checked"
-                                initialValue={true}
-                            >
-                                <Switch />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider />
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <Button onClick={() => setIsModalVisible(false)}>
-                            ยกเลิก
-                        </Button>
-                        <Button type="primary" htmlType="submit" loading={loading}>
-                            {editingProduct ? 'อัปเดต' : 'เพิ่มสินค้า'}
-                        </Button>
-                    </div>
-                </Form>
-            </Modal>
         </>
 
     );

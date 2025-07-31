@@ -1,67 +1,50 @@
-import type { ActiveEntity, UUID } from "./ฺBaseType";
+// Updated interfaces to match your actual API response
 
-export interface Category extends ActiveEntity {
+import type { Category } from "./CategoryType";
+
+
+export interface Brand {
+  id: string;
   name: string;
   description?: string;
-  parent_id?: UUID;
-  parent?: Category;
-  children?: Category[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface Brand extends ActiveEntity {
-  name: string;
-  description?: string;
-}
-
-export type ProductUnit = 'piece' | 'kg' | 'liter' | 'meter' | 'box';
-
-export interface Product extends ActiveEntity {
+export interface Product {
+  id: string;
   name: string;
   description?: string;
   sku: string;
   barcode?: string;
-  category_id?: UUID;
-  brand_id?: UUID;
-  cost_price: number;
-  selling_price: number;
-  discount_price?: number;
-  stock_quantity: number;
-  min_stock_level: number;
-  max_stock_level?: number;
-  unit: ProductUnit;
-  tax_rate: number;
-  image_url?: string;
+  costPrice: string;
+  sellingPrice: string;
+  discountPrice?: string | null;
+  stockQuantity: number;
+  minStockLevel: number;
+  maxStockLevel: number;
+  unit: string;
+  taxRate: string;
+  isActive: boolean;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
   
   // Relations
   category?: Category;
+  categoryId: string;
   brand?: Brand;
-  variants?: ProductVariant[];
+  brandId: string;
 }
 
-export interface ProductVariant extends ActiveEntity {
-  product_id: UUID;
-  variant_name: string;
-  variant_value: string;
-  price_adjustment: number;
-  stock_quantity: number;
-  sku?: string;
-  product?: Product;
+export interface ProductResponse {
+  data: Product[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
-export interface ProductFormValues {
-    name: string;
-    description?: string;
-    sku: string;
-    barcode: string;
-    costPrice: number;
-    sellingPrice: number;
-    discountPrice?: number;
-    stockQuantity: number;
-    minStockLevel: number;
-    maxStockLevel: number;
-    unit: string;
-    taxRate: number;
-    isActive: boolean;
-    categoryId: string;
-    brandId: string;
-}

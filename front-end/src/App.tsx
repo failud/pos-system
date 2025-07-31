@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import SalePage from './pages/SalePage';
 import ProductPage from './pages/ProductPage';
 import Page404 from './pages/Page404';
+import CategoyPage from './pages/CategoyPage';
 
 
 function App() {
@@ -31,6 +32,11 @@ function App() {
             />
 
             <Route
+              path="/categories"
+              element={<CategoyPage />}
+            />
+
+            <Route
               path="/products"
               element={<ProductPage />}
             />
@@ -45,7 +51,7 @@ function App() {
             <Route
               path="*"
               element={
-                <Page404/>
+                <Page404 />
               }
             />
           </Routes>

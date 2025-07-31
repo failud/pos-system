@@ -1,14 +1,15 @@
 
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, ClassSerializerInterceptor, Query } from '@nestjs/common';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './category.dto';
 import { Category } from './category.entity';
+import { PaginatedResult, PaginationQueryDto } from 'src/common/dto/pagination.dto';
 
 
 @Controller('categories')
 @UseInterceptors(ClassSerializerInterceptor)
 export class CategoryController {
-  constructor(private readonly categoryService: CategoryService) {}
+  constructor(private readonly categoryService: CategoryService) { }
 
   @Post()
   async create(@Body() createCategoryDto: CreateCategoryDto): Promise<Category> {
@@ -16,9 +17,10 @@ export class CategoryController {
   }
 
   @Get()
-  async findAll(): Promise<Category[]> {
-    return await this.categoryService.findAll();
+  async findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Category>> {
+    return await this.categoryService.findAllPaginated(query);
   }
+
 
   @Get('tree')
   async getCategoryTree(): Promise<Category[]> {

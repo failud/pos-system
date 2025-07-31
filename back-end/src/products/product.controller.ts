@@ -1,9 +1,10 @@
 // src/controllers/product.controller.ts
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
 import { CreateProductDto, UpdateProductDto } from './product.dto';
+import { PaginationQueryDto } from '../common/dto/pagination.dto';
+import { PaginatedResult } from '../interfaces/pagination.interface';
 import { Product } from './product.entity';
 import { ProductService } from './product.service';
-
 
 @Controller('products')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -16,16 +17,13 @@ export class ProductController {
   }
 
   @Get()
-  async findAll(@Query('search') search?: string): Promise<Product[]> {
-    if (search) {
-      return await this.productService.searchProducts(search);
-    }
-    return await this.productService.findAll();
+  async findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Product>> {
+    return await this.productService.findAllPaginated(query);
   }
 
   @Get('low-stock')
-  async getLowStockProducts(): Promise<Product[]> {
-    return await this.productService.getLowStockProducts();
+  async getLowStockProducts(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Product>> {
+    return await this.productService.getLowStockProductsPaginated(query);
   }
 
   @Get('sku/:sku')

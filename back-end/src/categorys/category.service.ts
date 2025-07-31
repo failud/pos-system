@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { CreateCategoryDto, UpdateCategoryDto } from './category.dto';
 import { Category } from './category.entity';
+import { PaginatedResult, PaginationQueryDto } from 'src/common/dto/pagination.dto';
 
 
 @Injectable()
@@ -84,4 +85,43 @@ export class CategoryService {
 
         return rootCategories.map(root => buildTree(root));
     }
+
+    async findAllPaginated(query: PaginationQueryDto): Promise<PaginatedResult<Category>> {
+        const { page = 1, limit = 10, search } = query;
+        const skip = (page - 1) * limit;
+
+        const queryBuilder = this.categoryRepository
+            .createQueryBuilder('category')
+            .leftJoinAndSelect('category.parent', 'parent')
+            .leftJoinAndSelect('category.children', 'children')
+            .leftJoinAndSelect('category.products', 'products')
+            .where('category.isActive = :isActive', { isActive: true });
+
+        if (search) {
+            queryBuilder.andWhere('category.name ILIKE :searchTerm', {
+                searchTerm: `%${search}%`,
+            });
+        }
+
+        const total = await queryBuilder.getCount();
+
+        const data = await queryBuilder
+            .skip(skip)
+            .take(limit)
+            .orderBy('category.createdAt', 'DESC')
+            .getMany();
+
+        const totalPages = Math.ceil(total / limit);
+
+        return {
+            data,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+            },
+        };
+    }
+
 }

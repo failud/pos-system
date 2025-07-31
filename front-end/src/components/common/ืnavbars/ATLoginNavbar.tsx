@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Menu, X, Bell } from 'lucide-react';
-import { Avatar, Button } from 'antd';
+import { Button, Tabs } from 'antd';
+import type { TabsProps } from 'antd';
 import LanguageButton from '../../languages/LanguageButton';
 import { DropdownProfile } from '../ui/DropdownProfile';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   t: (key: string) => string;
@@ -12,11 +13,10 @@ interface HeaderProps {
   openLoginModal: () => void;
 }
 
-
-
 const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobileMenu, openLoginModal }) => {
-
+  const location = useLocation();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('1');
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [user_data, setUserData] = useState({
     uuid: '',
@@ -24,8 +24,7 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
     first: '',
     last: '',
     email: ''
-  })
-
+  });
 
   useEffect(() => {
     const uuid = localStorage.getItem('uuid') || '';
@@ -33,7 +32,7 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
     const first = localStorage.getItem('first_name') || '';
     const last = localStorage.getItem('last_name') || '';
     const email = localStorage.getItem('email') || '';
-
+    
     setUserData({
       uuid,
       role,
@@ -43,6 +42,31 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
     });
   }, []);
 
+  const tabItems: TabsProps['items'] = [
+    {
+      key: 'dashboard',
+      label: t("Dashboard"),
+    },
+    {
+      key: 'sales',
+      label: t("Sales"),
+    },
+    {
+      key: 'products',
+      label: t("Product"),
+    },
+    {
+      key: 'categories',
+      label: t("Category"),
+    },
+  ];
+
+  const handleTabChange = (key: string) => {
+    navigate(`/${key}`);
+    if (isMobileMenuOpen) {
+      toggleMobileMenu();
+    }
+  };
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
@@ -55,17 +79,15 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
             </h1>
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <a onClick={() => navigate("/dashboard")} className="text-gray-700 hover:text-blue-600 transition-colors">
-              {t("Dashboard")}
-            </a>
-            <a onClick={() => navigate("/sales")} className="text-gray-700 hover:text-blue-600 transition-colors">
-              {t("Sales")}
-            </a>
-            <a onClick={() => navigate("/products")} className="text-gray-700 hover:text-blue-600 transition-colors">
-              {t("Product")}
-            </a>
+          {/* Desktop Navigation with Tabs */}
+          <nav className="hidden md:block">
+            <Tabs
+            tabPosition='bottom'
+              activeKey={location.pathname.split('/')[1] || 'dashboard'}
+              items={tabItems}
+              onChange={handleTabChange}
+              className=""
+            />
           </nav>
 
           {/* Desktop Actions */}
@@ -75,7 +97,7 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
             </button>
             <LanguageButton />
 
-            {user_data.uuid ?
+            {user_data.uuid ? (
               <DropdownProfile
                 open={dropdownVisible}
                 onVisibleChange={(visible) => setDropdownVisible(visible)}
@@ -87,14 +109,15 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
                   role: user_data.role || ''
                 }}
               />
-              :
-              <Button onClick={openLoginModal}
-                variant='solid'
+            ) : (
+              <Button 
+                onClick={openLoginModal}
                 type='primary'
-                className="btn btn-primary">
+                className="btn btn-primary"
+              >
                 {t("login")}
               </Button>
-            }
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -114,27 +137,26 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
       {/* Mobile Navigation */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200">
-          <nav className="container-custom py-4">
-            <div className="flex flex-col space-y-3">
-              <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors py-2">
-                {t("home")}
-              </a>
-              <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors py-2">
-                {t("about")}
-              </a>
-              <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors py-2">
-                {t("contact")}
-              </a>
-              <div className="pt-4 border-t border-gray-200">
-                <Button onClick={openLoginModal}
-                  variant='solid'
-                  type='primary'
-                  className="btn btn-primary">
-                  {t("login")}
-                </Button>
-              </div>
+          <div className="container-custom py-4">
+            <Tabs
+              activeKey={location.pathname.split('/')[1] || 'dashboard'}
+              items={tabItems}
+              onChange={handleTabChange}
+              tabPosition="top"
+              centered
+              className="w-full"
+            />
+            
+            <div className="pt-4 border-t border-gray-200">
+              <Button 
+                onClick={openLoginModal}
+                type='primary'
+                block
+              >
+                {t("login")}
+              </Button>
             </div>
-          </nav>
+          </div>
         </div>
       )}
     </header>

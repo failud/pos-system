@@ -5,12 +5,11 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
+export interface PaginatedResponse {
   total: number;
   page: number;
   limit: number;
-  total_pages: number;
+  totalPages: number;
 }
 
 export interface ApiError {
