@@ -1,10 +1,8 @@
-
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, ClassSerializerInterceptor, Query } from '@nestjs/common';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './category.dto';
 import { Category } from './category.entity';
-import { PaginatedResult, PaginationQueryDto } from 'src/common/dto/pagination.dto';
-
+import { PaginatedResult, PaginationQueryDto, CategoryWithProductCount } from 'src/common/dto/pagination.dto';
 
 @Controller('categories')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -17,10 +15,15 @@ export class CategoryController {
   }
 
   @Get()
-  async findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Category>> {
-    return await this.categoryService.findAllPaginated(query);
+  async findAll(): Promise<Category[]> {
+    return await this.categoryService.findAll();
   }
 
+  // Enhanced paginated endpoint with sorting and search
+  @Get('paginated')
+  async findAllPaginated(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Category | CategoryWithProductCount>> {
+    return await this.categoryService.findAllPaginated(query);
+  }
 
   @Get('tree')
   async getCategoryTree(): Promise<Category[]> {
@@ -48,8 +51,7 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<{ message: string }> {
-    await this.categoryService.remove(id);
-    return { message: 'Category deleted successfully' };
+  async remove(@Param('id') id: string): Promise<{ message: string; action: 'soft_deleted' | 'hard_deleted' }> {
+    return await this.categoryService.remove(id);
   }
 }

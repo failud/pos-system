@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import Layout from '../components/Layout/Layout'
 import { useLanguage } from '../components/languages/LanguageContext'
-import { createCategory, editCategory, getAllCategory } from '../services/CategorySV'
+import { createCategory, deleteCategory, editCategory, getAllCategory, getAllCategoryList } from '../services/CategorySV'
 import {
     Button,
     Card,
@@ -30,8 +30,16 @@ import {
     EditOutlined,
     DeleteOutlined,
     MoreOutlined,
-    EyeOutlined
+    EyeOutlined,
+    AppstoreOutlined,
+    SelectOutlined,
+    FilterOutlined
 } from '@ant-design/icons'
+import { Content } from 'antd/es/layout/layout'
+import dayjs from 'dayjs'
+import { errorMessage, successMessage, warningMessage } from '../utils/AntdMessage'
+import ConfirmModal from '../components/common/modals/ConfirmModal'
+import LoadingOverlay from '../components/common/loaders/LoadingOverlay'
 
 const { Text, Title } = Typography
 const { Search } = Input
@@ -83,49 +91,50 @@ const CategoryPage: React.FC = () => {
     const [currentCategory, setCurrentCategory] = useState<Category | null>(null)
     const [selectedCategoryProducts, setSelectedCategoryProducts] = useState<Product[]>([])
     const [selectedCategoryName, setSelectedCategoryName] = useState('')
+    const [modalDelete, setModalDelete] = useState<boolean>(false);
+    const [deleteID, setDeleteID] = useState<string | null>(null)
     const [form] = Form.useForm()
+    const [sortOrder, setSortOrder] = useState<string>('')
 
-    const get_category = async () => {
-        try {
-            setLoading(true)
-            const response = await getAllCategory()
-            setCategories(response.data.data)
-            setFilteredCategories(response.data.data)
-            console.log(response.data)
-        } catch (error: any) {
-            console.log('Error get Category', error)
-        } finally {
-            setLoading(false)
-        }
+const get_category = async () => {
+    try {
+        setLoading(true);
+
+        const rawParams = {
+            search: searchText,
+            sortOrder: sortOrder,
+        };
+
+        const params = Object.fromEntries(
+            Object.entries(rawParams).filter(([_, v]) => v !== '' && v !== undefined)
+        );
+
+        const response = await getAllCategoryList(params);
+        setCategories(response.data.data);
+        setFilteredCategories(response.data.data);
+    } catch (error: any) {
+        console.log("Error get Category", error);
+    } finally {
+        setLoading(false);
     }
+};
+
 
     useEffect(() => {
         get_category()
-    }, [])
+    }, [sortOrder])
 
-    useEffect(() => {
-        if (searchText) {
-            const filtered = categories.filter(cat =>
-                cat.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                cat.description.toLowerCase().includes(searchText.toLowerCase())
-            )
-            setFilteredCategories(filtered)
-        } else {
-            setFilteredCategories(categories)
-        }
-    }, [searchText, categories])
 
     // Calculate statistics
     const totalCategories = categories.length
     const activeCategories = categories.filter(cat => cat.isActive).length
-    const totalProducts = categories.reduce(
-        (sum, cat) => sum + (cat.products ? cat.products.length : 0),
-        0
-    )
 
     const handleAddCategory = () => {
         setCurrentCategory(null)
         form.resetFields()
+        form.setFieldsValue({
+            isActive: true
+        })
         setIsModalVisible(true)
     }
 
@@ -140,17 +149,6 @@ const CategoryPage: React.FC = () => {
         setIsModalVisible(true)
     }
 
-    const handleDeleteCategory = (id: string) => {
-        Modal.confirm({
-            title: t('Confirm deletion'),
-            content: t('Are you sure you want to delete this category?'),
-            onOk: () => {
-                // Call API to delete category
-                console.log('Delete category:', id)
-                get_category() // Refresh data
-            }
-        })
-    }
 
     const handleShowProducts = (category: Category) => {
         setSelectedCategoryProducts(category.products || [])
@@ -159,26 +157,56 @@ const CategoryPage: React.FC = () => {
     }
 
     const handleModalOk = async () => {
+        setLoading(true);
         try {
             const values = await form.validateFields()
 
             const body = {
                 name: values.name,
                 description: values.description || '',
-                isActive: values.isActive,
+                isActive: values.isActive !== undefined ? values.isActive : true,
                 parentId: values.parentId || undefined
             }
-
+            let type = ''
             if (currentCategory) {
                 await editCategory(currentCategory.id, body);
+                successMessage.edit('Category')
             } else {
                 await createCategory(body)
+                successMessage.create('Category')
             }
 
-            setIsModalVisible(false)
-            get_category() 
-        } catch (error) {
+            await get_category()
+        } catch (error: any) {
             console.error('Error saving category:', error)
+            errorMessage.custom('Error: ', error.data.message)
+        } finally {
+            setIsModalVisible(false);
+            setLoading(false);
+        }
+    }
+
+    const handleDeleteCate = async (id: string) => {
+        if (!id || id === '') {
+            errorMessage.delete('ID not found!');
+            return;
+        }
+        setLoading(true);
+        try {
+            const response = await deleteCategory(id);
+            if (response.data.action === "soft_deleted") {
+                warningMessage.custom(`${t('Cannot delete, This Category used Change status to Inactive')}`)
+            } else if (response.data.message == "Category has been permanently deleted") {
+                successMessage.delete('Category')
+            }
+            getAllCategoryList();
+        } catch (error: any) {
+            errorMessage.delete('Error delete:', error.data.message)
+        } finally {
+            setModalDelete(false)
+            setDeleteID(null);
+            get_category();
+            setLoading(false);
         }
     }
 
@@ -202,22 +230,24 @@ const CategoryPage: React.FC = () => {
             render: (text: string) => <Text>{text || '-'}</Text>
         },
         {
-            title: t('Status'),
+            title: <p className='text-center'>{t('Status')}</p>,
             dataIndex: 'isActive',
             key: 'status',
             render: (isActive: boolean) => (
-                <Tag color={isActive ? 'green' : 'red'}>
-                    {isActive ? t('Active') : t('Inactive')}
-                </Tag>
+                <Content className='flex justify-center'>
+                    <Tag className='text-center' color={isActive ? 'blue' : 'red'}>
+                        {isActive ? t('Active') : t('Inactive')}
+                    </Tag>
+                </Content>
             )
         },
         {
-            title: t('Products'),
+            title: t('Products used'),
             dataIndex: 'products',
             key: 'products',
             render: (products: Product[] | undefined, record: Category) => (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Tag>{products ? products.length : 0}</Tag>
+                    <Tag color={products && products.length == 0 ? "error" : "purple"}>{products ? products.length : 0}</Tag>
                     {products && products.length > 0 && (
                         <Button
                             type="link"
@@ -235,40 +265,50 @@ const CategoryPage: React.FC = () => {
             title: t('Created At'),
             dataIndex: 'createdAt',
             key: 'createdAt',
-            render: (date: string) => new Date(date).toLocaleDateString()
+            render: (date: string) => dayjs(date).format("DD/MM/YYYY - HH:MM")
         },
         {
-            title: t('Action'),
+            title: <p className='text-center'>{t('Action')}</p>,
             key: 'action',
             render: (_: any, record: Category) => (
-                <Dropdown
-                    overlay={
-                        <Menu>
-                            <Menu.Item
-                                icon={<EditOutlined />}
-                                onClick={() => handleEditCategory(record)}
-                            >
-                                {t('Edit')}
-                            </Menu.Item>
-                            <Menu.Item
-                                icon={<DeleteOutlined />}
-                                onClick={() => handleDeleteCategory(record.id)}
-                                danger
-                            >
-                                {t('Delete')}
-                            </Menu.Item>
-                        </Menu>
-                    }
-                    trigger={['click']}
-                >
-                    <Button type="text" icon={<MoreOutlined />} />
-                </Dropdown>
+                <Content className='flex justify-center gap-5'>
+                    <Button
+                        shape='circle'
+                        icon={<EditOutlined />}
+                        onClick={() => handleEditCategory(record)}
+                    >
+                        {/* {t('Edit')} */}
+                    </Button>
+                    <Button
+                        shape='circle'
+                        icon={<DeleteOutlined />}
+                        onClick={() => {
+                            setDeleteID(record.id)
+                            setModalDelete(true)
+                        }}
+                        danger
+                    >
+                        {/* {t('Delete')} */}
+                    </Button>
+                </Content>
+
             )
         }
     ]
 
     return (
         <Layout>
+            <ConfirmModal
+                onConfirm={() => handleDeleteCate(deleteID ? deleteID : '')}
+                onCancel={() => setModalDelete(false)}
+                visible={modalDelete}
+                type={'delete'}
+            />
+
+            {loading && <LoadingOverlay />}
+
+
+
             <div className="lg:px-[4vw] lg:py-[2vw]">
                 <div style={{ marginBottom: '24px' }}>
                     <Title level={3} style={{ margin: 0 }}>
@@ -278,27 +318,27 @@ const CategoryPage: React.FC = () => {
 
                 {/* Statistics Cards */}
                 <Row gutter={16} style={{ marginBottom: '24px' }}>
-                    <Col xs={24} sm={12} md={8}>
-                        <Card>
+                    <Col xs={24} sm={12} md={12}>
+                        <Card className='shadow-md'>
                             <Statistic
                                 title={t('Total Categories')}
                                 value={totalCategories}
-                                prefix={<ShoppingCartOutlined />}
+                                prefix={<AppstoreOutlined />}
                                 valueStyle={{ color: '#1890ff' }}
                             />
                         </Card>
                     </Col>
-                    <Col xs={24} sm={12} md={8}>
-                        <Card>
+                    <Col xs={24} sm={12} md={12}>
+                        <Card className='shadow-md'>
                             <Statistic
                                 title={t('Active Categories')}
                                 value={activeCategories}
-                                prefix={<ShoppingCartOutlined />}
+                                prefix={<SelectOutlined />}
                                 valueStyle={{ color: '#52c41a' }}
                             />
                         </Card>
                     </Col>
-                    <Col xs={24} sm={12} md={8}>
+                    {/* <Col xs={24} sm={12} md={8}>
                         <Card>
                             <Statistic
                                 title={t('Total Products')}
@@ -307,22 +347,49 @@ const CategoryPage: React.FC = () => {
                                 valueStyle={{ color: '#faad14' }}
                             />
                         </Card>
-                    </Col>
+                    </Col> */}
                 </Row>
 
                 {/* Main Content */}
-                <Card
+                <Card className='shadow-lg'
                     title={
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Search
-                                placeholder={t('Search categories')}
-                                allowClear
-                                enterButton
-                                style={{ width: 300 }}
-                                value={searchText}
-                                onChange={e => setSearchText(e.target.value)}
-                                prefix={<SearchOutlined />}
-                            />
+                            <span className='flex gap-5'>
+                                <Search
+                                    placeholder={t('Search categories')}
+                                    allowClear
+                                    enterButton
+                                    style={{ width: 300 }}
+                                    value={searchText}
+                                    onChange={e => {
+                                            setSearchText(e.target.value)
+                                    }}
+                                    prefix={<SearchOutlined />}
+                                />
+                                <Select
+                                    style={{ width: 150 }}
+                                    prefix={<FilterOutlined />}
+                                    defaultValue={'LATEST'}
+                                    options={[
+                                        {
+                                            value: 'LATEST',
+                                            label: <p className='text-end'>{t('Latest')}</p>,
+                                        },
+                                        {
+                                            value: 'OLDEST',
+                                            label: <p className='text-end'>{t('Oldest')}</p>,
+                                        },
+                                        {
+                                            value: 'MAX_PRODUCT',
+                                            label: <p className='text-end'>{t('The Most Product')}</p>,
+                                        },
+                                        {
+                                            value: 'MIN_PRODUCT',
+                                            label: <p className='text-end'>{t('The Least Product')}</p>,
+                                        },
+                                    ]}
+                                />
+                            </span>
                             <Button
                                 type="primary"
                                 icon={<PlusOutlined />}
@@ -330,6 +397,8 @@ const CategoryPage: React.FC = () => {
                             >
                                 {t('Add Category')}
                             </Button>
+
+
                         </div>
                     }
                     loading={loading}
@@ -373,6 +442,9 @@ const CategoryPage: React.FC = () => {
                         layout="vertical"
                         colon={false}
                         style={{ marginTop: 12 }}
+                        initialValues={{
+                            isActive: true // ตั้งค่า default ใน Form initialValues ด้วย
+                        }}
                     >
                         <Form.Item
                             name="name"
@@ -393,40 +465,21 @@ const CategoryPage: React.FC = () => {
                             />
                         </Form.Item>
 
-                        {/* <Form.Item
-                            name="parentId"
-                            label={<Text strong>{t('Parent Category')}</Text>}
-                        >
-                            <Select
-                                placeholder={t('Select parent category')}
-                                allowClear
-                                size="large"
-                            >
-                                {categories
-                                    .filter(cat => !cat.parentId)
-                                    .map(cat => (
-                                        <Option key={cat.id} value={cat.id}>
-                                            {cat.name}
-                                        </Option>
-                                    ))}
-                            </Select>
-                        </Form.Item> */}
-
                         <Form.Item
                             name="isActive"
                             label={<Text strong>{t('Status')}</Text>}
-                            // valuePropName="checd"
+                            valuePropName="checked"
                         >
                             <Switch
                                 checkedChildren={t('Active')}
                                 unCheckedChildren={t('Inactive')}
+                                defaultChecked={true}
                             />
                         </Form.Item>
                     </Form>
                 </Modal>
 
 
-                {/* Products List Modal */}
                 <Modal
                     title={`${t('Products in')} "${selectedCategoryName}"`}
                     visible={isProductModalVisible}

@@ -1,4 +1,5 @@
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+// src/common/dto/pagination.dto.ts
+import { IsOptional, IsInt, Min, Max, IsString, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class PaginationQueryDto {
@@ -17,10 +18,20 @@ export class PaginationQueryDto {
 
   @IsOptional()
   search?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value?.toString())
+  @IsString()
+  @IsIn(['createdAt', 'name', 'productCount'])
+  sortBy?: 'createdAt' | 'name' | 'productCount' = 'createdAt';
+
+  @IsOptional()
+  @Transform(({ value }) => value?.toString())
+  @IsString()
+  @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }
 
-// 2. สร้าง interface สำหรับ paginated response
-// src/interfaces/pagination.interface.ts
 export interface PaginatedResult<T> {
   data: T[];
   pagination: {
@@ -29,4 +40,19 @@ export interface PaginatedResult<T> {
     total: number;
     totalPages: number;
   };
+}
+
+// Add this interface for categories with product count
+export interface CategoryWithProductCount {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  parent?: any;
+  parentId?: string;
+  children?: any[];
+  products?: any[];
+  productCount: number;
 }
