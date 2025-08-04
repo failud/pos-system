@@ -7,6 +7,7 @@ import SalePage from './pages/SalePage';
 import ProductPage from './pages/ProductPage';
 import Page404 from './pages/Page404';
 import CategoyPage from './pages/CategoyPage';
+import BrandPage from './pages/BrandPage';
 
 
 function App() {
@@ -39,6 +40,11 @@ function App() {
             <Route
               path="/products"
               element={<ProductPage />}
+            />
+
+            <Route
+              path="/brands"
+              element={<BrandPage />}
             />
 
             <Route

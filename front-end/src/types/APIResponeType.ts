@@ -17,3 +17,10 @@ export interface ApiError {
   code?: string;
   details?: any;
 }
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}

@@ -48,7 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         />
       )}
 
-      <main className="flex-1">
+      <main className="flex-1 ml-15">
         {children}
       </main>
 

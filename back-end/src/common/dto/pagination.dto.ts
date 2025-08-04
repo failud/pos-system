@@ -1,4 +1,4 @@
-// src/common/dto/pagination.dto.ts
+// pagination.dto.ts (Updated to include brand sorting options)
 import { IsOptional, IsInt, Min, Max, IsString, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -41,6 +41,7 @@ export interface PaginatedResult<T> {
     totalPages: number;
   };
 }
+
 
 // Add this interface for categories with product count
 export interface CategoryWithProductCount {

@@ -61,7 +61,14 @@
     "Total Categories": "ປະເພດທັງໝົດ",
     "Search categories": "ຄົ້ນຫາ ປະເພດສິນຄ້າ...",
     "Latest": "ໃໝ່ສຸດ",
-    "OLDEST": "ເກົ່າສຸດ",
-    "The Most Product": "ສິນຄ້າຫຼາຍສຸດ",
-    "The Least Product": "ສິນຄ້າໜ້ອຍສຸດ"
+    "Oldest": "ເກົ່າສຸດ",
+    "Most Product": "ສິນຄ້າຫຼາຍສຸດ",
+    "Least Product": "ສິນຄ້າໜ້ອຍສຸດ",
+    "Products in": "ສິນຄ້າທີ່ຢູ່ໃນ",
+    "Add brand": "ເພີ່ມຍີ່ຫໍ້ (Brand)",
+    "Edit brand": "ແກ້ໄຂຍີ່ຫໍ້ (Brand)",
+    "Brand Managment": "ຈັດການຍີ່ຫໍ້ (Brand)",
+    "Search brands...": "ຄົ້ນຫາ",
+    "Active Brands": "ທີ່ເປີດໃຊ້ງານ",
+    "Total Brands": "ທັງຫມົດ"
 }

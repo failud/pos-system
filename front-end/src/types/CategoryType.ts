@@ -1,3 +1,4 @@
+import type { Product } from "./ProductType";
 
 
 export interface Category {
@@ -8,6 +9,7 @@ export interface Category {
   createdAt: string;
   updatedAt: string;
   parentId?: string;
+  products?: Product[]
 }
 
 export interface CategoryInput {

@@ -1,3 +1,4 @@
+// brand.dto.ts
 import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateBrandDto {

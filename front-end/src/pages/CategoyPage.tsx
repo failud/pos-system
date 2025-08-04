@@ -40,45 +40,15 @@ import dayjs from 'dayjs'
 import { errorMessage, successMessage, warningMessage } from '../utils/AntdMessage'
 import ConfirmModal from '../components/common/modals/ConfirmModal'
 import LoadingOverlay from '../components/common/loaders/LoadingOverlay'
+import type { Category } from '../types/CategoryType'
+import type { Product } from '../types/ProductType'
 
 const { Text, Title } = Typography
 const { Search } = Input
 const { Option } = Select
 
-interface Category {
-    id: string
-    name: string
-    description: string
-    isActive: boolean
-    createdAt: string
-    updatedAt: string
-    parentId?: string
-    parent?: Category
-    children?: Category[]
-    products?: Product[]
-}
 
-interface Product {
-    id: string
-    name: string
-    description: string
-    sku: string
-    barcode: string
-    costPrice: string
-    sellingPrice: string
-    discountPrice: string | null
-    stockQuantity: number
-    minStockLevel: number
-    maxStockLevel: number
-    unit: string
-    taxRate: string
-    isActive: boolean
-    imageUrl?: string
-    createdAt: string
-    updatedAt: string
-    categoryId: string
-    brandId: string
-}
+
 
 const CategoryPage: React.FC = () => {
     const { t } = useLanguage()
@@ -96,33 +66,37 @@ const CategoryPage: React.FC = () => {
     const [form] = Form.useForm()
     const [sortOrder, setSortOrder] = useState<string>('')
 
-const get_category = async () => {
-    try {
-        setLoading(true);
+    const [sortBy, setSortBy] = useState<string>('createdAt');
+    const [order, setOrder] = useState<'ASC' | 'DESC'>('DESC');
 
-        const rawParams = {
-            search: searchText,
-            sortOrder: sortOrder,
-        };
+    const get_category = async () => {
+        try {
+            setLoading(true);
 
-        const params = Object.fromEntries(
-            Object.entries(rawParams).filter(([_, v]) => v !== '' && v !== undefined)
-        );
+            const rawParams = {
+                search: searchText,
+                sortBy: sortBy,
+                sortOrder: order,
+            };
 
-        const response = await getAllCategoryList(params);
-        setCategories(response.data.data);
-        setFilteredCategories(response.data.data);
-    } catch (error: any) {
-        console.log("Error get Category", error);
-    } finally {
-        setLoading(false);
-    }
-};
+            const params = Object.fromEntries(
+                Object.entries(rawParams).filter(([_, v]) => v !== '' && v !== undefined)
+            );
+
+            const response = await getAllCategoryList(params);
+            setCategories(response.data.data);
+            setFilteredCategories(response.data.data);
+        } catch (error: any) {
+            console.log("Error get Category", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
 
     useEffect(() => {
-        get_category()
-    }, [sortOrder])
+        get_category();
+    }, [sortBy, order, searchText]);
 
 
     // Calculate statistics
@@ -338,16 +312,6 @@ const get_category = async () => {
                             />
                         </Card>
                     </Col>
-                    {/* <Col xs={24} sm={12} md={8}>
-                        <Card>
-                            <Statistic
-                                title={t('Total Products')}
-                                value={totalProducts}
-                                prefix={<ShoppingCartOutlined />}
-                                valueStyle={{ color: '#faad14' }}
-                            />
-                        </Card>
-                    </Col> */}
                 </Row>
 
                 {/* Main Content */}
@@ -362,30 +326,42 @@ const get_category = async () => {
                                     style={{ width: 300 }}
                                     value={searchText}
                                     onChange={e => {
-                                            setSearchText(e.target.value)
+                                        setSearchText(e.target.value)
                                     }}
                                     prefix={<SearchOutlined />}
                                 />
                                 <Select
-                                    style={{ width: 150 }}
                                     prefix={<FilterOutlined />}
-                                    defaultValue={'LATEST'}
+                                    value={`${sortBy}-${order}`}
+                                    onChange={(value) => {
+                                        const [sort, ord] = value.split('-');
+                                        setSortBy(sort);
+                                        setOrder(ord as 'ASC' | 'DESC');
+                                    }}
                                     options={[
                                         {
-                                            value: 'LATEST',
-                                            label: <p className='text-end'>{t('Latest')}</p>,
+                                            value: 'createdAt-DESC',
+                                            label: <p className="text-end">{t('Latest')}</p>,
                                         },
                                         {
-                                            value: 'OLDEST',
-                                            label: <p className='text-end'>{t('Oldest')}</p>,
+                                            value: 'createdAt-ASC',
+                                            label: <p className="text-end">{t('Oldest')}</p>,
                                         },
                                         {
-                                            value: 'MAX_PRODUCT',
-                                            label: <p className='text-end'>{t('The Most Product')}</p>,
+                                            value: 'productCount-DESC',
+                                            label: <p className="text-end">{t('Most Product')}</p>,
                                         },
                                         {
-                                            value: 'MIN_PRODUCT',
-                                            label: <p className='text-end'>{t('The Least Product')}</p>,
+                                            value: 'productCount-ASC',
+                                            label: <p className="text-end">{t('Least Product')}</p>,
+                                        },
+                                        {
+                                            value: 'name-ASC',
+                                            label: <p className="text-end">{t('A-Z')}</p>,
+                                        },
+                                        {
+                                            value: 'name-DESC',
+                                            label: <p className="text-end">{t('Z-A')}</p>,
                                         },
                                     ]}
                                 />
@@ -417,7 +393,6 @@ const get_category = async () => {
 
                 </Card>
 
-                {/* Category Modal */}
                 <Modal
                     title={
                         <Title level={4} style={{ margin: 0 }}>
@@ -443,7 +418,7 @@ const get_category = async () => {
                         colon={false}
                         style={{ marginTop: 12 }}
                         initialValues={{
-                            isActive: true // ตั้งค่า default ใน Form initialValues ด้วย
+                            isActive: true 
                         }}
                     >
                         <Form.Item
@@ -482,7 +457,7 @@ const get_category = async () => {
 
                 <Modal
                     title={`${t('Products in')} "${selectedCategoryName}"`}
-                    visible={isProductModalVisible}
+                    open={isProductModalVisible}
                     onCancel={() => setIsProductModalVisible(false)}
                     footer={[
                         <Button key="close" onClick={() => setIsProductModalVisible(false)}>

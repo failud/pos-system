@@ -1,10 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
+
+// brand.controller.ts
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, Query } from '@nestjs/common';
 import { BrandService } from './brand.service';
 import { CreateBrandDto, UpdateBrandDto } from './brand.dto';
+import { PaginationQueryDto, PaginatedResult } from '../common/dto/pagination.dto';
+import { BrandWithProductCount } from './brand.interface';
 
 @Controller('brands')
 export class BrandController {
-  constructor(private readonly brandService: BrandService) {}
+  constructor(private readonly brandService: BrandService) { }
 
   @Post()
   create(@Body() createBrandDto: CreateBrandDto) {
@@ -12,9 +16,16 @@ export class BrandController {
   }
 
   @Get()
-  findAll() {
-    return this.brandService.findAll();
+  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<BrandWithProductCount>> {
+    return this.brandService.findAll(query);
   }
+
+  @Get('/active')
+  findAllActiveOptions(): Promise<{ id: string; name: string; description?: string }[]> {
+    return this.brandService.findAllActiveOptions();
+  }
+
+
 
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -30,4 +41,6 @@ export class BrandController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.brandService.remove(id);
   }
+
+
 }

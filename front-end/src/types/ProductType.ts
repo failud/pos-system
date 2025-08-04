@@ -1,16 +1,8 @@
 // Updated interfaces to match your actual API response
 
+import type { Brand } from "./BrandType";
 import type { Category } from "./CategoryType";
 
-
-export interface Brand {
-  id: string;
-  name: string;
-  description?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
 
 export interface Product {
   id: string;
