@@ -64,7 +64,6 @@ const CategoryPage: React.FC = () => {
     const [modalDelete, setModalDelete] = useState<boolean>(false);
     const [deleteID, setDeleteID] = useState<string | null>(null)
     const [form] = Form.useForm()
-    const [sortOrder, setSortOrder] = useState<string>('')
 
     const [sortBy, setSortBy] = useState<string>('createdAt');
     const [order, setOrder] = useState<'ASC' | 'DESC'>('DESC');
@@ -99,7 +98,6 @@ const CategoryPage: React.FC = () => {
     }, [sortBy, order, searchText]);
 
 
-    // Calculate statistics
     const totalCategories = categories.length
     const activeCategories = categories.filter(cat => cat.isActive).length
 
@@ -134,7 +132,6 @@ const CategoryPage: React.FC = () => {
         setLoading(true);
         try {
             const values = await form.validateFields()
-
             const body = {
                 name: values.name,
                 description: values.description || '',

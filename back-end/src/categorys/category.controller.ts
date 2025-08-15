@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, ClassSerializerInterceptor, Query } from '@nestjs/common';
 import { CategoryService } from './category.service';
-import { CreateCategoryDto, UpdateCategoryDto } from './category.dto';
+import { CategoryWithProductCount, CreateCategoryDto, UpdateCategoryDto } from './category.dto';
 import { Category } from './category.entity';
-import { PaginatedResult, PaginationQueryDto, CategoryWithProductCount } from 'src/common/dto/pagination.dto';
+import { PaginatedResult, PaginationQueryDto } from 'src/common/dto/pagination.dto';
 
 @Controller('categories')
 @UseInterceptors(ClassSerializerInterceptor)

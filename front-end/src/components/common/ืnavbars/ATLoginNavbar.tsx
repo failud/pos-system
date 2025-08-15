@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, Bell, BarChart3, FileText, Package, Grid3X3, SquareSigma } from 'lucide-react';
-import { Button, Drawer, Menu as AntMenu, Tooltip } from 'antd';
+import { Menu, X, Bell, BarChart3, FileText, Package, Grid3X3, SquareSigma, Store, Contact, Users } from 'lucide-react';
+import { Button, Drawer, Menu as AntMenu, Tooltip, Card } from 'antd';
 import type { MenuProps } from 'antd';
 import LanguageButton from '../../languages/LanguageButton';
 import { DropdownProfile } from '../ui/DropdownProfile';
@@ -66,7 +66,17 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
     {
       key: 'brands',
       icon: <SquareSigma className="w-5 h-5" />,
-      label: t("brands"),
+      label: t("Brands"),
+    },
+    {
+      key: 'customers',
+      icon: <Contact className="w-5 h-5"/>,
+      label: t("Customer"),
+    },
+    {
+      key: 'users',
+      icon: <Users className="w-5 h-5" />,
+      label: t("Users"),
     },
   ];
 
@@ -108,13 +118,12 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
         {/* Logo/Menu Toggle */}
         <button
           onClick={toggleDrawer}
-          className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mb-6 hover:bg-blue-600 transition-colors"
+          className="w-10 h-10 mb-16 bg-blue-500 rounded-lg  flex items-center justify-center hover:bg-blue-600 transition-colors"
         >
           <Grid3X3 className="w-5 h-5 text-white" />
         </button>
-
         {/* Navigation Icons */}
-        <div className="flex flex-col space-y-2 flex-1">
+        <div className="flex flex-col gap-1 flex-1">
           {menuConfig.map((item) => (
             <Tooltip key={item.key} title={item.label} placement="right">
               <button
@@ -146,8 +155,8 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
           <div className="flex items-center justify-between h-16">
             {/* Desktop Layout */}
             <div className="hidden md:flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">
-                {t('My Store')}
+              <h1 className="flex justify-center gap-5 items-center text-xl font-bold text-gray-900">
+                <Store />  {t('My Store')}
               </h1>
             </div>
 
@@ -204,7 +213,7 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
           <div className="md:hidden bg-white border-t border-gray-200">
             <div className="container-custom py-4">
               <AntMenu
-                mode="vertical"
+                mode="inline"
                 selectedKeys={[currentPath]}
                 items={mobileMenuItems}
                 onClick={({ key }) => handleMobileMenuClick(key)}
@@ -245,9 +254,9 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
         placement="left"
         onClose={() => setDrawerVisible(false)}
         open={drawerVisible}
+        closeIcon={false}
         width={280}
-        className="drawer-custom"
-        mask={false}
+        // mask={false}
         styles={{
           header: {
             borderBottom: '1px solid #f0f0f0',
@@ -256,9 +265,9 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
           body: {
             padding: '24px 0'
           },
-          wrapper: {
-            marginLeft: '64px'
-          }
+          // wrapper: {
+          //   marginLeft: '64px'
+          // }
         }}
       >
         <div className="flex flex-col h-full">
@@ -269,11 +278,12 @@ const ATLoginNavbar: React.FC<HeaderProps> = ({ t, isMobileMenuOpen, toggleMobil
                 {t('Menu')}
               </h3>
               <AntMenu
-                mode="vertical"
+                mode="inline"
                 selectedKeys={[currentPath]}
                 items={menuItems}
                 onClick={({ key }) => handleMenuClick(key)}
                 className="border-none"
+
                 style={{
                   fontSize: '14px',
                 }}

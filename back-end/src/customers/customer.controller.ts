@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, Query } from '@nestjs/common';
 import { CustomerService } from './customer.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './customer.dto';
+import { CreateCustomerDto, CustomerPaginationQueryDto, UpdateCustomerDto } from './customer.dto';
+import { Customer } from './customer.entity';
+import { PaginatedResult } from 'src/common/dto/pagination.dto';
 
 @Controller('customers')
 export class CustomerController {
@@ -12,8 +14,13 @@ export class CustomerController {
   }
 
   @Get()
-  findAll() {
-    return this.customerService.findAll();
+  findAll(@Query() paginationQuery: CustomerPaginationQueryDto): Promise<PaginatedResult<Customer>> {
+    return this.customerService.findAll(paginationQuery);
+  }
+
+  @Get('stats')
+  getStats() {
+    return this.customerService.getCustomerStats();
   }
 
   @Get('search')

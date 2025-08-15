@@ -74,3 +74,7 @@ export class LoginUserDto {
   @IsString()
   password: string;
 }
+
+export class ChangePasswordDto {
+  password: string;
+}

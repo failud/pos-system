@@ -31,3 +31,17 @@ export interface CustomerGroupMember extends BaseEntity {
   customer?: Customer;
   group?: CustomerGroup;
 }
+
+export interface CustomerInput {
+  customerCode: string,
+  first_name?: string,
+  last_name?: string,
+  email: string,
+  phone: string,
+  address?: string,
+  date_of_birth?: string,
+  gender?: string,
+  loyalty_points?: number,
+  total_spent?: number,
+  isActive: boolean
+}

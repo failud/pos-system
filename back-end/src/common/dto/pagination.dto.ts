@@ -42,18 +42,3 @@ export interface PaginatedResult<T> {
   };
 }
 
-
-// Add this interface for categories with product count
-export interface CategoryWithProductCount {
-  id: string;
-  name: string;
-  description?: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  parent?: any;
-  parentId?: string;
-  children?: any[];
-  products?: any[];
-  productCount: number;
-}

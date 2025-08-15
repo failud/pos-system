@@ -64,3 +64,19 @@ export class PaginationQueryDto {
   @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }
+
+
+
+export interface CategoryWithProductCount {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  parent?: any;
+  parentId?: string;
+  children?: any[];
+  products?: any[];
+  productCount: number;
+}

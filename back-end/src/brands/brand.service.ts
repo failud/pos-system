@@ -26,7 +26,7 @@ export class BrandService {
     const queryBuilder = this.brandRepository
       .createQueryBuilder('brand')
       .leftJoinAndSelect('brand.products', 'product')
-      // .where('brand.is_active = :isActive', { isActive: true });
+    // .where('brand.is_active = :isActive', { isActive: true });
 
     if (search) {
       queryBuilder.andWhere(
@@ -98,7 +98,7 @@ export class BrandService {
 
   async findOne(id: string): Promise<Brand> {
     const brand = await this.brandRepository.findOne({
-      where: { id, is_active: true },
+      where: { id },
       relations: ['products'],
     });
     if (!brand) {
@@ -113,12 +113,74 @@ export class BrandService {
     return await this.brandRepository.save(brand);
   }
 
-  async remove(id: string): Promise<void> {
-    const brand = await this.findOne(id);
-    brand.is_active = false;
-    await this.brandRepository.save(brand);
+  async remove(id: string): Promise<{ message: string; action: 'deactivated' | 'deleted' }> {
+    const brand = await this.brandRepository.findOne({
+      where: { id },
+      relations: ['products'],
+    });
+
+    if (!brand) {
+      throw new NotFoundException(`Brand with ID ${id} not found`);
+    }
+
+    const hasActiveProducts = brand.products && brand.products.some(product => product.isActive);
+    const hasAnyProducts = brand.products && brand.products.length > 0;
+
+    if (hasActiveProducts) {
+      brand.is_active = false;
+      await this.brandRepository.save(brand);
+      return {
+        message: `this Brand has been deactivated because it has active products`,
+        action: 'deactivated'
+      };
+    } else if (hasAnyProducts) {
+      brand.is_active = false;
+      await this.brandRepository.save(brand);
+      return {
+        message: `this has been deactivated because it has associated products`,
+        action: 'deactivated'
+      };
+    } else {
+      await this.brandRepository.remove(brand);
+      return {
+        message: `Brand has been permanently deleted`,
+        action: 'deleted'
+      };
+    }
   }
 
+  async removeStrict(id: string): Promise<{ message: string; action: 'deactivated' | 'deleted' }> {
+    const brand = await this.brandRepository.findOne({
+      where: { id },
+      relations: ['products'],
+    });
+
+    if (!brand) {
+      throw new NotFoundException(`Brand with ID ${id} not found`);
+    }
+
+    const activeProductCount = await this.brandRepository
+      .createQueryBuilder('brand')
+      .leftJoin('brand.products', 'product')
+      .where('brand.id = :brandId', { brandId: id })
+      .andWhere('product.isActive = :isActive', { isActive: true })
+      .getCount();
+
+    if (activeProductCount > 0) {
+      brand.is_active = false;
+      await this.brandRepository.save(brand);
+      return {
+        message: `Brand "${brand.name}" cannot be deleted because it has ${activeProductCount} active product(s). Brand has been deactivated instead.`,
+        action: 'deactivated'
+      };
+    } else {
+      await this.brandRepository.remove(brand);
+      return {
+        message: `Brand "${brand.name}" has been permanently deleted`,
+        action: 'deleted'
+      };
+    }
+  }
 
   async findAllActiveOptions(): Promise<BrandOption[]> {
     const brands = await this.brandRepository.find({

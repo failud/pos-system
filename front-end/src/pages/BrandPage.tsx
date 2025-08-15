@@ -5,7 +5,7 @@ import { useLanguage } from '../components/languages/LanguageContext'
 import { Button, Card, Col, Form, Input, List, Modal, Row, Space, Statistic, Switch, Table, Tag, Typography } from 'antd'
 import { Blocks, CopyCheck, Eye, Plus, Trash2 } from 'lucide-react'
 import dayjs from 'dayjs'
-import { createBrand, editBrand, getALLBrandPaginated } from '../services/BrandSV'
+import { createBrand, deleteBrand, editBrand, getALLBrandPaginated } from '../services/BrandSV'
 import type { Brand, BrandInput, BrandResponse } from '../types/BrandType'
 import {
     DeleteOutlined,
@@ -15,7 +15,8 @@ import {
 } from '@ant-design/icons'
 import type { Product } from '../types/ProductType'
 import { useForm } from 'antd/es/form/Form'
-import { successMessage } from '../utils/AntdMessage'
+import { successMessage, warningMessage } from '../utils/AntdMessage'
+import ConfirmModal from '../components/common/modals/ConfirmModal'
 
 function BrandPage() {
     const { Text, Title } = Typography
@@ -34,6 +35,9 @@ function BrandPage() {
     const [form] = Form.useForm();
     const [modalADD, setModalADD] = useState<boolean>(false);
     const [currentBrand, setCurrentBrand] = useState<Brand | null>(null)
+
+    const [deleteID, setDeleteID] = useState<string | null>(null);
+    const [modalDelete, setModalDelete] = useState<boolean>(false);
 
     const getBrandList = async () => {
         try {
@@ -93,10 +97,28 @@ function BrandPage() {
         setPageSize(size);
     }
 
-
     const handleSearch = (value: string) => {
         setSearchText(value);
         setCurrentPage(1);
+    }
+
+    const handleDelete = async (id: string) => {
+        setLoading(true);
+        try {
+            const response = await deleteBrand(id);
+            console.log("Deleting... ", response.data)
+            if (response.data.action == 'deactivated') {
+                warningMessage.custom(t(`${response.data.message}`))
+            } else if (response.data.action == 'deleted') {
+                successMessage.delete(t('Brands'));
+            }
+            getBrandList();
+        } catch (error: any) {
+            console.log("Error delete brand", error.data.message);
+        } finally {
+            setLoading(false);
+            setModalDelete(false);
+        }
     }
 
     const columns = [
@@ -182,8 +204,8 @@ function BrandPage() {
                         shape='circle'
                         icon={<DeleteOutlined />}
                         onClick={() => {
-                            // setDeleteID(record.id)
-                            // setModalDelete(true)
+                            setDeleteID(record.id)
+                            setModalDelete(true)
                         }}
                         danger
                     />
@@ -194,7 +216,15 @@ function BrandPage() {
 
     return (
         <Layout>
-            <Content className='p-5'>
+
+            <ConfirmModal
+                onConfirm={() => handleDelete(deleteID ? deleteID : '')}
+                onCancel={() => setModalDelete(false)}
+                visible={modalDelete}
+                type={'delete'}
+            />
+
+            <Content className='lg:px-[4vw] lg:py-[2vw]'>
                 <Title level={3}>
                     {t("Brand Management")}
                 </Title>
@@ -251,7 +281,7 @@ function BrandPage() {
                             </div>
 
                             {/* Table with Pagination */}
-                           <Table
+                            <Table
                                 columns={columns}
                                 dataSource={brandData}
                                 rowKey="id"

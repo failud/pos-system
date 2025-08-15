@@ -38,7 +38,7 @@ export class BrandController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string): Promise<{ message: string; action: 'deactivated' | 'deleted' }> {
     return this.brandService.remove(id);
   }
 

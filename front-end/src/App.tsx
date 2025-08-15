@@ -8,6 +8,8 @@ import ProductPage from './pages/ProductPage';
 import Page404 from './pages/Page404';
 import CategoyPage from './pages/CategoyPage';
 import BrandPage from './pages/BrandPage';
+import UserPgae from './pages/UserPgae';
+import CustomerPage from './pages/CustomerPage';
 
 
 function App() {
@@ -51,7 +53,16 @@ function App() {
               path="/sales"
               element={<SalePage />}
             />
+            
+            <Route
+              path="/users"
+              element={<UserPgae />}
+            />
 
+            <Route
+              path="/customers"
+              element={<CustomerPage />}
+            />
 
             {/* 404 Not Found */}
             <Route

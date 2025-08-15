@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, Res, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, Res, Req, Query, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Response, Request } from 'express';
-import { UserService } from './user.service';
-import { CreateUserDto, LoginUserDto } from './user.dto';
+import { UserService, PaginatedResult } from './user.service';
+import { ChangePasswordDto, CreateUserDto, LoginUserDto } from './user.dto';
 import { Public } from 'src/decorators/public.decorator';
+import { User } from './user.entity';
 
 @Controller('users')
 export class UserController {
@@ -14,227 +15,205 @@ export class UserController {
   }
 
   @Get()
-  findAll() {
-    return this.userService.findAll();
+  findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+    @Query('is_active') isActive?: string,
+  ): Promise<PaginatedResult<User> | User[]> {
+    const pageNumber = parseInt(page, 10) || 1;
+    const limitNumber = parseInt(limit, 10) || 10;
+    const isActiveBoolean = isActive === 'true' ? true : isActive === 'false' ? false : undefined;
+
+    return this.userService.findAll({
+      page: pageNumber,
+      limit: limitNumber,
+      search,
+      role,
+      isActive: isActiveBoolean,
+    });
+  }
+
+  @Get('stats')
+  getUserStats() {
+    return this.userService.getUserStats();
+  }
+
+  @Get('profile/me')
+  async getProfile(@Req() req: Request) {
+    const token = req.cookies['auth_token'];
+    if (!token) {
+      throw new UnauthorizedException('No authentication token found');
+    }
+
+    const user = await this.userService.validateSession(token);
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role
+      }
+    };
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @Res() res: Response) {
-    try {
-      const user = await this.userService.findOne(id);
-      if (!user) {
-        return res.status(HttpStatus.NOT_FOUND).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        data: user
-      });
-    } catch (error) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Failed to get user',
-        error: error.message
-      });
+  async findOne(@Param('id') id: string) {
+    const user = await this.userService.findOne(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+
+    return {
+      success: true,
+      data: user
+    };
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateUserDto: Partial<CreateUserDto>, @Res() res: Response) {
-    try {
-      const user = await this.userService.update(id, updateUserDto);
-      if (!user) {
-        return res.status(HttpStatus.NOT_FOUND).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        message: 'User updated successfully',
-        data: user
-      });
-    } catch (error) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Failed to update user',
-        error: error.message
-      });
+  async update(@Param('id') id: string, @Body() updateUserDto: Partial<CreateUserDto>) {
+    const user = await this.userService.update(id, updateUserDto);
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+
+    return {
+      success: true,
+      message: 'User updated successfully',
+      data: user
+    };
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string, @Res() res: Response) {
-    try {
-      await this.userService.remove(id);
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        message: 'User deleted successfully'
-      });
-    } catch (error) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Failed to delete user',
-        error: error.message
-      });
-    }
+  async remove(@Param('id') id: string) {
+    await this.userService.remove(id);
+    return {
+      success: true,
+      message: 'User deleted successfully'
+    };
   }
 
-  
   @Public()
   @Post('login')
   async login(@Body() loginUserDto: LoginUserDto, @Res() res: Response) {
-    try {
-      const result = await this.userService.validateUserAndCreateSession(loginUserDto);
+    const result = await this.userService.validateUserAndCreateSession(loginUserDto);
 
-      if (!result.success) {
-        return res.status(HttpStatus.UNAUTHORIZED).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      // Type assertion - we know result.user exists when success is true
-      const user = result.user!;
-
-      // Set JWT token in HTTP-only cookie
-      res.cookie('auth_token', result.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        path: '/'
-      });
-
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        message: 'Login successful',
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          role: user.role
-        }
-      });
-    } catch (error) {
-      console.error('Login error:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+    if (!result.success) {
+      return res.status(HttpStatus.UNAUTHORIZED).json({
         success: false,
-        message: 'Login failed',
-        error: error.message
+        message: 'Invalid credentials'
       });
     }
+
+    const user = result.user!;
+
+    res.cookie('auth_token', result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/'
+    });
+
+    return res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role
+      }
+    });
   }
 
   @Post('logout')
   async logout(@Req() req: Request, @Res() res: Response) {
-    try {
-      const token = req.cookies['auth_token'];
+    const token = req.cookies['auth_token'];
 
-      if (token) {
-        await this.userService.logout(token);
-      }
-
-      // Clear the auth cookie
-      res.clearCookie('auth_token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/'
-      });
-
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        message: 'Logout successful'
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Logout failed',
-        error: error.message
-      });
+    if (token) {
+      await this.userService.logout(token);
     }
+
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+
+    return res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Logout successful'
+    });
   }
 
   @Post('logout-all')
   async logoutAll(@Req() req: Request, @Res() res: Response) {
-    try {
-      const token = req.cookies['auth_token'];
+    const token = req.cookies['auth_token'];
 
-      if (token) {
-        // First validate the session to get user info
-        const user = await this.userService.validateSession(token);
-        if (user) {
-          await this.userService.logoutAllSessions(user.id);
-        }
-      }
-
-      // Clear the auth cookie
-      res.clearCookie('auth_token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/'
-      });
-
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        message: 'All sessions logged out successfully'
-      });
-    } catch (error) {
-      console.error('Logout all error:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Logout all failed',
-        error: error.message
-      });
-    }
-  }
-
-  @Get('profile/me')
-  async getProfile(@Req() req: Request, @Res() res: Response) {
-    try {
-      const token = req.cookies['auth_token'];
-
-      if (!token) {
-        return res.status(HttpStatus.UNAUTHORIZED).json({
-          success: false,
-          message: 'No authentication token found'
-        });
-      }
-
+    if (token) {
       const user = await this.userService.validateSession(token);
-
-      if (!user) {
-        return res.status(HttpStatus.UNAUTHORIZED).json({
-          success: false,
-          message: 'Invalid or expired session'
-        });
+      if (user) {
+        await this.userService.logoutAllSessions(user.id);
       }
-
-      return res.status(HttpStatus.OK).json({
-        success: true,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          role: user.role
-        }
-      });
-    } catch (error) {
-      console.error('Get profile error:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: 'Failed to get profile',
-        error: error.message
-      });
     }
+
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+
+    return res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'All sessions logged out successfully'
+    });
   }
+
+  @Patch(':id/change-password')
+  async changePassword(
+    @Param('id') targetUserId: string,
+    @Body() changePasswordDto: ChangePasswordDto,
+    @Req() req: Request
+  ) {
+    const token = req.cookies['auth_token'];
+    if (!token) {
+      throw new UnauthorizedException('No authentication token found');
+    }
+
+    const currentUser = await this.userService.validateSession(token);
+    if (!currentUser) {
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    const result = await this.userService.changeUserPassword(
+      targetUserId,
+      changePasswordDto.password,
+      currentUser
+    );
+
+    if (!result.success) {
+      throw new UnauthorizedException(result.message);
+    }
+
+    return {
+      success: true,
+      message: 'Password changed successfully'
+    };
+  }
+
+
 }
+

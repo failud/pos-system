@@ -21,3 +21,22 @@ export interface UserSession extends BaseEntity {
 export interface UserProfile extends Omit<User, 'password_hash'> {
   full_name?: string;
 }
+
+export interface UserInput {
+  username: string,
+  email: string,
+  first_name: string,
+  last_name: string,
+  phone: string | null,
+  role: string,
+  is_active: boolean,
+  password?: string;
+}
+
+// username: values.username,
+// email: values.email,
+// first_name: values.first_name,
+// last_name: values.last_name,
+// phone: values.phone || null,
+// role: values.role,
+// is_active: values.isActive !== undefined ? values.isActive : true,
