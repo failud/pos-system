@@ -28,16 +28,16 @@ import {
     WarningOutlined,
     MoreOutlined,
     ScanOutlined,
-
     ReloadOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { BadgeProps, MenuProps } from 'antd';
 import Layout from '../components/Layout/Layout';
 import { useLanguage } from '../components/languages/LanguageContext';
-import type { Category, Product, ProductResponse } from '../types/ProductType';
+import type { Product, ProductResponse } from '../types/ProductType';
 import { getAllCategory } from '../services/CategorySV';
 import { getAllProducts } from '../services/ProductSV';
+import type { Category } from '../types/CategoryType';
 import { Content } from 'antd/es/layout/layout';
 import { AddEditProduct } from '../components/modals/products/AddEditProduct';
 
@@ -45,59 +45,83 @@ const { Search } = Input;
 const { Option } = Select;
 
 interface StockStatus {
-    status: | 'success' | 'exception' | 'active';
+    status: 'success' | 'exception' | 'active';
     text: string;
 }
 
 const ProductPage: React.FC = () => {
-
     const { t } = useLanguage();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [searchText, setSearchText] = useState<string>('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [categoryList, setCategoryList] = useState<Category[]>([])
-    const [page, setPage] = useState<number>(1)
-    const [limit, setLimit] = useState<number>(10)
+    const [categoryList, setCategoryList] = useState<Category[]>([]);
+    const [page, setPage] = useState<number>(1);
+    const [limit, setLimit] = useState<number>(10);
     const [productResponse, setProductResponse] = useState<ProductResponse | null>(null);
     const [isEditing, setEditing] = useState<boolean>(false);
     const [modalProduct, setModalProduct] = useState<boolean>(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
+    // Statistics states
+    const [totalProducts, setTotalProducts] = useState<number>(0);
+    const [activeProducts, setActiveProducts] = useState<number>(0);
+    const [lowStockProducts, setLowStockProducts] = useState<number>(0);
+    const [totalValue, setTotalValue] = useState<number>(0);
 
     const fetch_category = async () => {
         try {
             const response = await getAllCategory();
-            console.log("categoy response -------- ", response)
+            console.log("category response -------- ", response);
             if (response) {
                 setCategoryList(response.data.data);
             }
         } catch (error: any) {
-            console.log("Error get categories -------- ", error)
+            console.log("Error get categories -------- ", error);
         }
-    }
+    };
 
-    const fetch_product = async (page?: number, limit?: number) => {
+    const fetch_product = async (pageNum?: number, limitNum?: number) => {
         setLoading(true);
         try {
-            const response = await getAllProducts(page, limit);
+            const response = await getAllProducts(pageNum || page, limitNum || limit);
             setProductResponse(response.data);
-            setTotalItems(response.data.pagination.total);
-            console.log("Product response", response.data)
+            
+            // Calculate statistics
+            const productData = response.data.data;
+            setTotalProducts(response.data.pagination.total);
+            
+            const activeCount = productData.filter((product: { isActive: any; }) => product.isActive).length;
+            setActiveProducts(activeCount);
+            
+            const lowStockCount = productData.filter((product: { stockQuantity: number; minStockLevel: number; }) => 
+                product.stockQuantity <= product.minStockLevel
+            ).length;
+            setLowStockProducts(lowStockCount);
+            
+            const totalStockValue = productData.reduce((sum: number, product: { sellingPrice: string; stockQuantity: number; }) => 
+                sum + (parseFloat(product.sellingPrice) * product.stockQuantity), 0
+            );
+            setTotalValue(totalStockValue);
+            
+            console.log("Product response", response.data);
         } catch (error: any) {
-            console.log("Error get Product list", error)
+            console.log("Error get Product list", error);
+            message.error('ไม่สามารถโหลดข้อมูลสินค้าได้');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     const productList = productResponse?.data || [];
+
     useEffect(() => {
         fetch_category();
     }, []);
 
     useEffect(() => {
         fetch_product();
-    }, [limit, page])
+    }, [limit, page]);
 
     const getStockStatus = (current: number, min: number, max: number): StockStatus => {
         if (current <= min) return { status: 'exception', text: `${t("low stock")}` };
@@ -117,6 +141,47 @@ const ProductPage: React.FC = () => {
             default: return status as BadgeProps['status'];
         }
     };
+
+    const handleEdit = (record: Product): void => {
+        setEditingProduct(record);
+        setEditing(true);
+        setModalProduct(true);
+    };
+
+    const handleDelete = (record: Product): void => {
+        Modal.confirm({
+            title: 'ยืนยันการลบ',
+            content: `คุณต้องการลบสินค้า "${record.name}" ใช่หรือไม่?`,
+            okText: 'ลบ',
+            cancelText: 'ยกเลิก',
+            okType: 'danger',
+            onOk: () => {
+                // Here you would call your delete API
+                // For now, just show success message
+                message.success('ลบสินค้าสำเร็จ');
+                fetch_product(); // Refresh the list
+            },
+        });
+    };
+
+    const handlePaginationChange = (pageNum: number, pageSize?: number) => {
+        setPage(pageNum);
+        if (pageSize && pageSize !== limit) {
+            setLimit(pageSize);
+        }
+        fetch_product(pageNum, pageSize || limit);
+    };
+
+    const filteredProducts = productList.filter(product => {
+        const matchesSearch = !searchText || 
+            product.name.toLowerCase().includes(searchText.toLowerCase()) ||
+            product.sku.toLowerCase().includes(searchText.toLowerCase()) ||
+            (product.barcode && product.barcode.includes(searchText));
+        
+        const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;
+        
+        return matchesSearch && matchesCategory;
+    });
 
     const columns: ColumnsType<Product> = [
         {
@@ -152,10 +217,12 @@ const ProductPage: React.FC = () => {
         },
         {
             title: `${t("category")}`,
-            dataIndex: ['category', 'name'],
+            dataIndex: 'category',
             key: 'category',
             width: 120,
-            render: (text: string) => <Tag color="blue">{text}</Tag>,
+            render: (category: any) => (
+                <Tag color="blue">{category?.name || 'N/A'}</Tag>
+            ),
         },
         {
             title: `${t("barcode")}`,
@@ -282,37 +349,6 @@ const ProductPage: React.FC = () => {
         },
     ];
 
-    const handleEdit = (record: Product): void => {
-        setEditingProduct(record);
-        form.setFieldsValue({
-            ...record,
-            costPrice: parseFloat(record.costPrice),
-            sellingPrice: parseFloat(record.sellingPrice),
-            discountPrice: record.discountPrice ? parseFloat(record.discountPrice) : undefined,
-            taxRate: parseFloat(record.taxRate),
-            categoryId: record.category.id,
-            brandId: record.brand.id,
-        });
-        setIsModalVisible(true);
-    };
-
-    const handleDelete = (record: Product): void => {
-        Modal.confirm({
-            title: 'ยืนยันการลบ',
-            content: `คุณต้องการลบสินค้า "${record.name}" ใช่หรือไม่?`,
-            okText: 'ลบ',
-            cancelText: 'ยกเลิก',
-            okType: 'danger',
-            onOk: () => {
-                setProducts(products.filter(p => p.id !== record.id));
-                message.success('ลบสินค้าสำเร็จ');
-            },
-        });
-    };
-
-
-
-
     return (
         <>
             <Layout>
@@ -330,7 +366,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("all products")}
-                                    // value={totalProducts}
+                                    value={totalProducts}
                                     prefix={<ShoppingCartOutlined />}
                                     valueStyle={{ color: '#1890ff' }}
                                 />
@@ -340,7 +376,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("activated products")}
-                                    // value={activeProducts}
+                                    value={activeProducts}
                                     prefix={<ShoppingCartOutlined />}
                                     valueStyle={{ color: '#52c41a' }}
                                 />
@@ -350,7 +386,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("low stock")}
-                                    // value={lowStockProducts}
+                                    value={lowStockProducts}
                                     prefix={<WarningOutlined />}
                                     valueStyle={{ color: '#ff4d4f' }}
                                 />
@@ -360,7 +396,7 @@ const ProductPage: React.FC = () => {
                             <Card>
                                 <Statistic
                                     title={t("value in stock")}
-                                    // value={totalValue}
+                                    value={totalValue}
                                     prefix="฿"
                                     precision={2}
                                     valueStyle={{ color: '#52c41a' }}
@@ -369,9 +405,7 @@ const ProductPage: React.FC = () => {
                         </Col>
                     </Row>
 
-                    {/* Main Content */}
                     <Card>
-                        {/* Toolbar */}
                         <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -404,7 +438,7 @@ const ProductPage: React.FC = () => {
                             </Space>
 
                             <Space wrap>
-                                <Button icon={<ReloadOutlined />} onClick={() => fetch_product(page)}>
+                                <Button icon={<ReloadOutlined />} onClick={() => fetch_product()}>
                                     {t("refresh")}
                                 </Button>
                                 <Button
@@ -412,6 +446,7 @@ const ProductPage: React.FC = () => {
                                     icon={<PlusOutlined />}
                                     onClick={() => {
                                         setEditing(false);
+                                        setEditingProduct(null);
                                         setModalProduct(true);
                                     }}
                                 >
@@ -423,7 +458,7 @@ const ProductPage: React.FC = () => {
                         {/* Products Table */}
                         <Table
                             columns={columns}
-                            dataSource={productList}
+                            dataSource={filteredProducts}
                             rowKey="id"
                             loading={loading}
                             pagination={{
@@ -433,21 +468,29 @@ const ProductPage: React.FC = () => {
                                 showSizeChanger: true,
                                 showQuickJumper: true,
                                 showTotal: (total, range) => `${t("total")} ${total} ${t("items")}`,
-                                // onChange: (page, limit) => {
-                                //     // Handle pagination change
-                                //     fetch_product(page, limit);
-                                // },
+                                onChange: handlePaginationChange,
+                                onShowSizeChange: handlePaginationChange,
                             }}
                             scroll={{ x: 1000 }}
                             size="small"
                         />
                     </Card>
 
-                    <AddEditProduct editingProduct={isEditing} open={modalProduct} close={() => setModalProduct(false)} />
+                    <AddEditProduct 
+                        editingProduct={editingProduct} 
+                        open={modalProduct} 
+                        close={() => {
+                            setModalProduct(false);
+                            setEditingProduct(null);
+                            setEditing(false);
+                        }}
+                        onSuccess={() => {
+                            fetch_product();
+                        }}
+                    />
                 </div>
             </Layout>
         </>
-
     );
 };
 

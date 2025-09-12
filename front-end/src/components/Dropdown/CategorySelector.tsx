@@ -1,12 +1,10 @@
 import { Button, Modal, Form, Input, Switch, Select, message } from "antd";
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import type { Category, CategoryInput } from "../../../types/CategoryType";
-import { createCategory } from "../../../services/CategorySV";
-import { useLanguage } from "../../languages/LanguageContext";
-import CategoryFormModal from "../Category/AddCategory";
-
-
+import type { Category, CategoryInput } from "../../types/CategoryType";
+import { useLanguage } from "../languages/LanguageContext";
+import { createCategory } from "../../services/CategorySV";
+import CategoryFormModal from "../modals/Category/AddCategory";
 
 const { Option } = Select;
 

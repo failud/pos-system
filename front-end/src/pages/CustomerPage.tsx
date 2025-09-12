@@ -133,7 +133,8 @@ function CustomerPage() {
         try {
             // Here you would call your API to delete customer
             const response = deleteCustomer(id);
-            console.log('Deleting customer with ID:', id);
+            console.log('Deleting customer with ID:',
+             id);
             successMessage.delete('Customer deleted');
             getCustomerList();
         } catch (error) {

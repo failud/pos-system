@@ -25,6 +25,15 @@ export const deleteBrand = async (id: string) => {
     }
 }
 
+export const getBrandActive = async () => {
+    try {
+        const response = await apiClient.get(`/brands/active`);
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
 export const getBrandBYID = async (id: string) => {
     try {
         const response = await apiClient.get(`/brands/${id}`)

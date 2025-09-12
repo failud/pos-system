@@ -48,3 +48,21 @@ export const deleteCategory = async (id: string) => {
         throw error;
     }
 }
+
+export const getCategoryRoot = async () => {
+    try {
+        const response = await apiClient.get(`/categories/root`);
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const getCategoryBYID = async (id: string) => {
+    try {
+        const response = await apiClient.get(`/categories/${id}`);
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}

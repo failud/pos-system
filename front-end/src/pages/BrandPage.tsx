@@ -2,21 +2,23 @@ import React, { useEffect, useState } from 'react'
 import Layout from '../components/Layout/Layout'
 import { Content } from 'antd/es/layout/layout'
 import { useLanguage } from '../components/languages/LanguageContext'
-import { Button, Card, Col, Form, Input, List, Modal, Row, Space, Statistic, Switch, Table, Tag, Typography } from 'antd'
-import { Blocks, CopyCheck, Eye, Plus, Trash2 } from 'lucide-react'
+import { Button, Card, Col, Input, Row, Space, Statistic, Table, Tag, Typography } from 'antd'
+import { Blocks, CopyCheck, Plus } from 'lucide-react'
 import dayjs from 'dayjs'
 import { createBrand, deleteBrand, editBrand, getALLBrandPaginated } from '../services/BrandSV'
 import type { Brand, BrandInput, BrandResponse } from '../types/BrandType'
 import {
     DeleteOutlined,
     EditOutlined,
-    EyeFilled,
     EyeOutlined,
 } from '@ant-design/icons'
 import type { Product } from '../types/ProductType'
 import { useForm } from 'antd/es/form/Form'
 import { successMessage, warningMessage } from '../utils/AntdMessage'
 import ConfirmModal from '../components/common/modals/ConfirmModal'
+import BrandFormModal from '../components/modals/brand/AddEditBrand'
+import ProductListModal from '../components/modals/brand/ProductListInBrand'
+
 
 function BrandPage() {
     const { Text, Title } = Typography
@@ -32,9 +34,10 @@ function BrandPage() {
     const [selectedCategoryProducts, setSelectedCategoryProducts] = useState<Product[]>([])
     const [selectedCategoryName, setSelectedCategoryName] = useState('')
 
-    const [form] = Form.useForm();
+    const [form] = useForm();
     const [modalADD, setModalADD] = useState<boolean>(false);
     const [currentBrand, setCurrentBrand] = useState<Brand | null>(null)
+    const [modalLoading, setModalLoading] = useState<boolean>(false);
 
     const [deleteID, setDeleteID] = useState<string | null>(null);
     const [modalDelete, setModalDelete] = useState<boolean>(false);
@@ -66,6 +69,7 @@ function BrandPage() {
 
     const handleADD = async () => {
         try {
+            setModalLoading(true);
             const values = await form.validateFields()
             const body = {
                 name: values.name,
@@ -89,6 +93,8 @@ function BrandPage() {
 
         } catch (error: any) {
             console.log("Error Add new brand", error.data.message)
+        } finally {
+            setModalLoading(false);
         }
     }
 
@@ -119,6 +125,28 @@ function BrandPage() {
             setLoading(false);
             setModalDelete(false);
         }
+    }
+
+    const handleCloseFormModal = () => {
+        setModalADD(false);
+        setCurrentBrand(null);
+        form.resetFields();
+    }
+
+    const handleEditBrand = (record: Brand) => {
+        setCurrentBrand(record);
+        form.setFieldsValue({
+            name: record.name,
+            description: record.description,
+            isActive: record.is_active
+        });
+        setModalADD(true);
+    }
+
+    const handleAddBrand = () => {
+        setCurrentBrand(null);
+        form.resetFields();
+        setModalADD(true);
     }
 
     const columns = [
@@ -190,15 +218,7 @@ function BrandPage() {
                     <Button
                         shape='circle'
                         icon={<EditOutlined />}
-                        onClick={() => {
-                            setCurrentBrand(record);
-                            form.setFieldsValue({
-                                name: record.name,
-                                description: record.description,
-                                isActive: record.is_active
-                            });
-                            setModalADD(true);
-                        }}
+                        onClick={() => handleEditBrand(record)}
                     />
                     <Button
                         shape='circle'
@@ -216,7 +236,6 @@ function BrandPage() {
 
     return (
         <Layout>
-
             <ConfirmModal
                 onConfirm={() => handleDelete(deleteID ? deleteID : '')}
                 onCancel={() => setModalDelete(false)}
@@ -270,11 +289,7 @@ function BrandPage() {
                                 <Button
                                     icon={<Plus />}
                                     type='primary'
-                                    onClick={() => {
-                                        setCurrentBrand(null);
-                                        form.resetFields();
-                                        setModalADD(true);
-                                    }}
+                                    onClick={handleAddBrand}
                                 >
                                     {t("Add brand")}
                                 </Button>
@@ -306,110 +321,23 @@ function BrandPage() {
                 </Row>
             </Content>
 
-            {/* Products Modal */}
-            <Modal
-                title={`${t('Products in')}: "${selectedCategoryName}"`}
-                open={isProductModalVisible}
-                onCancel={() => setIsProductModalVisible(false)}
-                footer={[
-                    <Button key="close" onClick={() => setIsProductModalVisible(false)}>
-                        {t('Close')}
-                    </Button>
-                ]}
-                width={800}
-            >
-                {selectedCategoryProducts.length > 0 ? (
-                    <List
-                        dataSource={selectedCategoryProducts}
-                        renderItem={(product) => (
-                            <List.Item>
-                                <List.Item.Meta
-                                    title={<Text strong>{product.name}</Text>}
-                                    description={
-                                        <div>
-                                            <Text type="secondary">{product.description}</Text>
-                                            <br />
-                                            <Space wrap>
-                                                <Tag color="blue">SKU: {product.sku}</Tag>
-                                                <Tag color="green">฿{product.sellingPrice}</Tag>
-                                                <Tag color="orange">{t('Stock')}: {product.stockQuantity}</Tag>
-                                                <Tag color={product.isActive ? 'green' : 'red'}>
-                                                    {product.isActive ? t('Active') : t('Inactive')}
-                                                </Tag>
-                                            </Space>
-                                        </div>
-                                    }
-                                />
-                            </List.Item>
-                        )}
-                    />
-                ) : (
-                    <div style={{ textAlign: 'center', padding: '40px' }}>
-                        <Text type="secondary">{t('No products found in this brand')}</Text>
-                    </div>
-                )}
-            </Modal>
-
-            {/* Add/Edit Brand Modal */}
-            <Modal
-                title={
-                    <Title level={4} style={{ margin: 0 }}>
-                        {currentBrand ? t('Edit brand') : t('Add brand')}
-                    </Title>
-                }
-                open={modalADD}
+            {/* Brand Form Modal */}
+            <BrandFormModal
+                visible={modalADD}
+                currentBrand={currentBrand}
+                form={form}
                 onOk={handleADD}
-                onCancel={() => {
-                    setModalADD(false);
-                    setCurrentBrand(null);
-                    form.resetFields();
-                }}
-                okText={currentBrand ? t('Update') : t('Create')}
-                cancelText={t('Cancel')}
-                width={500}
-                centered
-            >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    colon={false}
-                    style={{ marginTop: 12 }}
-                    initialValues={{
-                        isActive: true
-                    }}
-                >
-                    <Form.Item
-                        name="name"
-                        label={<Text strong>{t('Brand Name')}</Text>}
-                        rules={[{ required: true, message: t('Please input brand name!') }]}
-                    >
-                        <Input placeholder={t('e.g. Nike, Apple, Samsung')} size="large" />
-                    </Form.Item>
+                onCancel={handleCloseFormModal}
+                loading={modalLoading}
+            />
 
-                    <Form.Item
-                        name="description"
-                        label={<Text strong>{t('Description')}</Text>}
-                    >
-                        <Input.TextArea
-                            rows={3}
-                            placeholder={t('Write something about this brand...')}
-                            style={{ resize: 'none' }}
-                        />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="isActive"
-                        label={<Text strong>{t('Status')}</Text>}
-                        valuePropName="checked"
-                    >
-                        <Switch
-                            checkedChildren={t('Active')}
-                            unCheckedChildren={t('Inactive')}
-                            defaultChecked={true}
-                        />
-                    </Form.Item>
-                </Form>
-            </Modal>
+            {/* Products List Modal */}
+            <ProductListModal
+                visible={isProductModalVisible}
+                brandName={selectedCategoryName}
+                products={selectedCategoryProducts}
+                onClose={() => setIsProductModalVisible(false)}
+            />
         </Layout>
     )
 }
